@@ -131,7 +131,8 @@ export default function SearchResults({ query = "", onBack, onClose }) {
         });
     };
 
-    const activeFiltersCount = selectedCategories.length;
+    const hasSortFilter = sortBy !== "POPULARITY";
+    const activeFiltersCount = selectedCategories.length + (hasSortFilter ? 1 : 0);
 
     return (
         <div className="relative min-h-screen bg-white pb-24">
@@ -140,6 +141,39 @@ export default function SearchResults({ query = "", onBack, onClose }) {
             {activeFiltersCount > 0 && (
                 <div className="px-4 pt-3 flex items-center justify-between gap-3">
                     <div className="flex flex-wrap gap-2">
+                        {hasSortFilter && (
+                            <button
+                                type="button"
+                                onClick={() => setSortBy("POPULARITY")}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 text-xs text-orange-700 border border-orange-200"
+                            >
+                                <span className="flex items-center gap-1">
+                                    <svg
+                                        width="14"
+                                        height="14"
+                                        viewBox="0 0 16 16"
+                                        aria-hidden="true"
+                                        className="text-orange-700"
+                                    >
+                                        <path
+                                            d="M6 3L4 5M4 5L2 3M4 5V2M10 11L12 9M12 9L14 11M12 9V14"
+                                            stroke="currentColor"
+                                            strokeWidth="1.2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                        />
+                                    </svg>
+                                    <span>
+                                        {
+                                            SORT_OPTIONS.find(
+                                                (option) => option.id === sortBy
+                                            )?.label
+                                        }
+                                    </span>
+                                </span>
+                                <span className="text-[10px]">×</span>
+                            </button>
+                        )}
                         {selectedCategories.map((category) => (
                             <button
                                 key={category}
@@ -154,7 +188,10 @@ export default function SearchResults({ query = "", onBack, onClose }) {
                     </div>
                     <button
                         type="button"
-                        onClick={() => setSelectedCategories([])}
+                        onClick={() => {
+                            setSelectedCategories([]);
+                            setSortBy("POPULARITY");
+                        }}
                         className="text-xs text-orange-600 font-medium"
                     >
                         Clear all
@@ -291,32 +328,109 @@ export default function SearchResults({ query = "", onBack, onClose }) {
 
             {/* Bottom bar */}
             <div className="fixed bottom-0 inset-x-0 z-30">
-                <div className="mx-4 mb-4 rounded-full bg-white shadow-[0_4px_16px_rgba(15,23,42,0.16)] px-5 py-2 flex items-center justify-between text-sm">
+                <div className="mx-4 mb-4 rounded-[28px] bg-white/95 backdrop-blur shadow-[0_4px_16px_rgba(15,23,42,0.16)] px-5 py-2 flex items-center text-sm">
                     <button
                         type="button"
                         onClick={() => setIsSortOpen(true)}
-                        className="flex items-center gap-1.5 text-gray-800"
+                        className="flex flex-1 items-center justify-center gap-1.5 text-gray-900 font-semibold"
                     >
                         <span>Sort</span>
-                        <span className="text-xs text-gray-400">
-                            {
-                                SORT_OPTIONS.find((option) => option.id === sortBy)
-                                    ?.label
-                            }
-                        </span>
+                        <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 18 18"
+                            aria-hidden="true"
+                            className="text-gray-700"
+                        >
+                            <path
+                                d="M6 4L4 6L2 4"
+                                stroke="currentColor"
+                                strokeWidth="1.2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                            <path
+                                d="M4 2V6"
+                                stroke="currentColor"
+                                strokeWidth="1.2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                            <path
+                                d="M12 14L14 12L16 14"
+                                stroke="currentColor"
+                                strokeWidth="1.2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                            <path
+                                d="M14 16V12"
+                                stroke="currentColor"
+                                strokeWidth="1.2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        </svg>
                     </button>
+
+                    <div className="h-6 w-px mx-4 bg-gray-200" />
 
                     <button
                         type="button"
                         onClick={() => setIsFilterOpen(true)}
-                        className="flex items-center gap-1.5 text-gray-800"
+                        className="flex flex-1 items-center justify-center gap-1.5 text-gray-900 font-semibold"
                     >
                         <span>Filters</span>
-                        {activeFiltersCount > 0 && (
-                            <span className="ml-1 text-xs rounded-full bg-orange-100 text-orange-700 px-1.5 py-0.5">
-                                {activeFiltersCount}
-                            </span>
-                        )}
+                        <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 18 18"
+                            aria-hidden="true"
+                            className="text-gray-700"
+                        >
+                            <path
+                                d="M4 5H15"
+                                stroke="currentColor"
+                                strokeWidth="1.2"
+                                strokeLinecap="round"
+                            />
+                            <path
+                                d="M3 9H14"
+                                stroke="currentColor"
+                                strokeWidth="1.2"
+                                strokeLinecap="round"
+                            />
+                            <path
+                                d="M5 13H16"
+                                stroke="currentColor"
+                                strokeWidth="1.2"
+                                strokeLinecap="round"
+                            />
+                            <circle
+                                cx="7"
+                                cy="5"
+                                r="1.3"
+                                fill="white"
+                                stroke="currentColor"
+                                strokeWidth="1"
+                            />
+                            <circle
+                                cx="11"
+                                cy="9"
+                                r="1.3"
+                                fill="white"
+                                stroke="currentColor"
+                                strokeWidth="1"
+                            />
+                            <circle
+                                cx="9"
+                                cy="13"
+                                r="1.3"
+                                fill="white"
+                                stroke="currentColor"
+                                strokeWidth="1"
+                            />
+                        </svg>
                     </button>
                 </div>
             </div>
@@ -380,7 +494,10 @@ export default function SearchResults({ query = "", onBack, onClose }) {
                             {activeFiltersCount > 0 && (
                                 <button
                                     type="button"
-                                    onClick={() => setSelectedCategories([])}
+                                    onClick={() => {
+                                        setSelectedCategories([]);
+                                        setSortBy("POPULARITY");
+                                    }}
                                     className="text-xs text-orange-600 font-medium"
                                 >
                                     Clear all
@@ -395,9 +512,9 @@ export default function SearchResults({ query = "", onBack, onClose }) {
                                     className="w-full text-left px-4 py-3 bg-orange-50 text-orange-700 font-semibold border-r-2 border-orange-500"
                                 >
                                     Category
-                                    {activeFiltersCount > 0 && (
+                                    {selectedCategories.length > 0 && (
                                         <span className="ml-1 text-[11px] rounded-full bg-orange-100 text-orange-700 px-1">
-                                            {activeFiltersCount}
+                                            {selectedCategories.length}
                                         </span>
                                     )}
                                 </button>
