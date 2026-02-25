@@ -1,5 +1,7 @@
 "use client"
 
+import Image from "next/image";
+
 export default function SearchBar({
     searchValue,
     onChange,
@@ -15,16 +17,19 @@ export default function SearchBar({
     };
 
     return (
-        <div className="bg-white rounded-2xl px-4 py-3 mb-5 shadow-sm">
+        <div
+            className={`bg-white px-4 py-3 mb-5 rounded-[12px] border ${searchValue ? "border-[#303133]" : "border-transparent"
+                }`}
+        >
             <div className="flex items-center gap-3">
                 <button
                     type="button"
                     onClick={onBack}
-                    className="text-xl text-black leading-none disabled:opacity-50"
+                    className="relative w-6 h-6 text-black leading-none"
                     aria-label="Go back"
                     disabled={!onBack}
                 >
-                    ←
+                    <Image src="/svg/chevron-left.svg" alt="Go back" fill unoptimized />
                 </button>
                 <div className="flex-1">
                     <div className="relative">
@@ -40,10 +45,15 @@ export default function SearchBar({
                             <button
                                 type="button"
                                 onClick={onClear}
-                                className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 text-lg leading-none"
+                                className="absolute right-0 top-1/2 -translate-y-1/2 w-[12px] h-[12px]"
                                 aria-label="Clear search"
                             >
-                                ×
+                                <Image
+                                    src="/svg/cross.svg"
+                                    alt="Clear search"
+                                    fill
+                                    unoptimized
+                                />
                             </button>
                         )}
 

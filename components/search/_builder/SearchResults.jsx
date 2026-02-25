@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { products } from "../../../constants/products";
+import { searchProducts } from "@/lib/search";
 
 const SORT_OPTIONS = [
     { id: "POPULARITY", label: "Popularity" },
@@ -20,6 +22,27 @@ const getCategoryFromProduct = (product) => {
 
     return "Body";
 };
+
+const formatPrice = (n) => (n != null && !Number.isNaN(n) ? `${Math.round(n)}` : null);
+
+const getDiscountPercent = (price, compareAtPrice) => {
+    if (price == null || compareAtPrice == null || compareAtPrice <= 0 || price >= compareAtPrice) return null;
+    return Math.round((1 - price / compareAtPrice) * 100);
+};
+
+const StarRating = () => (
+    <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((i) => (
+            <span key={i} className="inline-block">
+                {i <= 4 ? (
+                    <Image src="/svg/star-yellow.svg" width={11} height={11} alt="" aria-hidden />
+                ) : (
+                    <Image src="/svg/star-white.svg" width={12} height={12} alt="" aria-hidden />
+                )}
+            </span>
+        ))}
+    </div>
+);
 
 const highlightMatch = (text, query) => {
     if (!text || !query) return <span>{text}</span>;
@@ -43,19 +66,25 @@ const highlightMatch = (text, query) => {
     );
 };
 
-const getDiscountPercent = (mrp, sp) => {
-    if (!mrp || !sp || sp >= mrp) return null;
-    return Math.round(((mrp - sp) / mrp) * 100);
-};
-
-export default function SearchResults({ query = "", onBack, onClose }) {
+export default function SearchResults({ query = "" }) {
+    const [products, setProducts] = useState([]);
     const [sortBy, setSortBy] = useState("POPULARITY");
     const [isSortOpen, setIsSortOpen] = useState(false);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [quantities, setQuantities] = useState({});
 
-    const trimmedQuery = query.trim().toLowerCase();
+    const trimmedQuery = query.trim();
+
+    // 🔥 FETCH FROM TYPESENSE
+    useEffect(() => {
+        if (!trimmedQuery) {
+            setProducts([]);
+            return;
+        }
+
+        searchProducts(trimmedQuery).then(setProducts);
+    }, [trimmedQuery]);
 
     const toggleCategory = (category) => {
         setSelectedCategories((prev) =>
@@ -69,18 +98,19 @@ export default function SearchResults({ query = "", onBack, onClose }) {
         const sorted = [...list];
 
         switch (sortBy) {
-            case "RATING_DESC":
-                sorted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-                break;
             case "PRICE_LOW_HIGH":
-                sorted.sort((a, b) => (a.sp ?? a.mrp ?? 0) - (b.sp ?? b.mrp ?? 0));
+                sorted.sort(
+                    (a, b) => (a.price ?? 0) - (b.price ?? 0)
+                );
                 break;
+
             case "PRICE_HIGH_LOW":
-                sorted.sort((a, b) => (b.sp ?? b.mrp ?? 0) - (a.sp ?? a.mrp ?? 0));
+                sorted.sort(
+                    (a, b) => (b.price ?? 0) - (a.price ?? 0)
+                );
                 break;
-            case "POPULARITY":
+
             default:
-                sorted.sort((a, b) => (b.reviewCount ?? 0) - (a.reviewCount ?? 0));
                 break;
         }
 
@@ -90,16 +120,6 @@ export default function SearchResults({ query = "", onBack, onClose }) {
     const filteredProducts = useMemo(() => {
         let list = products;
 
-        if (trimmedQuery) {
-            list = list.filter((product) => {
-                const title = product.title?.toLowerCase() ?? "";
-                const subtitle = product.subtitle?.toLowerCase() ?? "";
-                return (
-                    title.includes(trimmedQuery) || subtitle.includes(trimmedQuery)
-                );
-            });
-        }
-
         if (selectedCategories.length > 0) {
             list = list.filter((product) =>
                 selectedCategories.includes(getCategoryFromProduct(product))
@@ -107,7 +127,7 @@ export default function SearchResults({ query = "", onBack, onClose }) {
         }
 
         return applySort(list);
-    }, [trimmedQuery, selectedCategories, sortBy]);
+    }, [products, selectedCategories, sortBy]);
 
     const handleIncrease = (id) => {
         setQuantities((prev) => ({
@@ -131,108 +151,56 @@ export default function SearchResults({ query = "", onBack, onClose }) {
         });
     };
 
-    const hasSortFilter = sortBy !== "POPULARITY";
-    const activeFiltersCount = selectedCategories.length + (hasSortFilter ? 1 : 0);
+    const activeFiltersCount =
+        selectedCategories.length + (sortBy !== "POPULARITY" ? 1 : 0);
 
     return (
         <div className="relative min-h-screen bg-white pb-24">
-
-            {/* Applied filters chips */}
-            {activeFiltersCount > 0 && (
-                <div className="px-4 pt-3 flex items-center justify-between gap-3">
-                    <div className="flex flex-wrap gap-2">
-                        {hasSortFilter && (
-                            <button
-                                type="button"
-                                onClick={() => setSortBy("POPULARITY")}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 text-xs text-orange-700 border border-orange-200"
-                            >
-                                <span className="flex items-center gap-1">
-                                    <svg
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 16 16"
-                                        aria-hidden="true"
-                                        className="text-orange-700"
-                                    >
-                                        <path
-                                            d="M6 3L4 5M4 5L2 3M4 5V2M10 11L12 9M12 9L14 11M12 9V14"
-                                            stroke="currentColor"
-                                            strokeWidth="1.2"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        />
-                                    </svg>
-                                    <span>
-                                        {
-                                            SORT_OPTIONS.find(
-                                                (option) => option.id === sortBy
-                                            )?.label
-                                        }
-                                    </span>
-                                </span>
-                                <span className="text-[10px]">×</span>
-                            </button>
-                        )}
-                        {selectedCategories.map((category) => (
-                            <button
-                                key={category}
-                                type="button"
-                                onClick={() => toggleCategory(category)}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 text-xs text-orange-700 border border-orange-200"
-                            >
-                                <span>{category}</span>
-                                <span className="text-[10px]">×</span>
-                            </button>
-                        ))}
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setSelectedCategories([]);
-                            setSortBy("POPULARITY");
-                        }}
-                        className="text-xs text-orange-600 font-medium"
-                    >
-                        Clear all
-                    </button>
-                </div>
-            )}
 
             {/* Results list */}
             <div className="mt-2 space-y-3">
                 {filteredProducts.map((product) => {
                     const quantity = quantities[product.id] ?? 0;
-                    const discountPercent = getDiscountPercent(
-                        product.mrp,
-                        product.sp
-                    );
-                    const starValue = Math.round(product.rating ?? 4.5);
-
                     return (
                         <div
                             key={product.id}
                             className="flex gap-3 bg-white py-3 border-b border-gray-100"
                         >
-                            <div className="w-[86px] h-[120px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                                <Image
-                                    src={product.featuredImage}
-                                    alt={product.title}
-                                    width={86}
-                                    height={120}
-                                    className="w-full h-full object-cover"
-                                />
+                            <div className="relative w-[72px] h-[111px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                {product.featured_image && (
+                                    <Image
+                                        src={product.featured_image}
+                                        alt={product.title}
+                                        fill
+                                    />
+                                )}
                             </div>
 
                             <div className="flex-1 flex flex-col min-w-0">
                                 <div className="flex justify-between gap-3">
                                     <div className="min-w-0">
-                                        <div className="text-[11px] text-gray-500 mb-0.5 line-clamp-1">
-                                            {product.subtitle}
-                                        </div>
-                                        <div className="text-sm text-gray-900 font-semibold leading-5 line-clamp-2">
+                                        <div className="text-[14px] text-[#292E2C] leading-[20px]">
                                             {highlightMatch(product.title, trimmedQuery)}
                                         </div>
+                                        <div className="text-[12px] text-[#7B818C] mb-0.5 leading-[16px]">
+                                            {product.subtitle}
+                                        </div>
+                                        {product.quantity_tag && (
+                                            <div className="text-[12px] text-[#7B818C] leading-[16px]">
+                                                {product.quantity_tag}
+                                            </div>
+                                        )}
+                                        <div className="flex gap-x-2">
+                                            <p className="text-[12px] leading-[16px] text-[#676B73] bg-[#F5F7FA] px-[4px]">
+                                                30g
+                                            </p>
+                                            <div className="flex gap-x-2 bg-[#F5F7FA] px-[4px] rounded-[2px] w-fit">
+                                                <StarRating />
+                                                <p className="text-[12px] leading-[16px] text-[#676B73]">(171)</p>
+                                            </div>
+                                        </div>
+
+
                                     </div>
 
                                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -251,7 +219,7 @@ export default function SearchResults({ query = "", onBack, onClose }) {
                                                     onClick={() => handleDecrease(product.id)}
                                                     className="w-5 h-5 rounded-full border border-orange-300 flex items-center justify-center"
                                                 >
-                                                    <span className="text-sm leading-none">−</span>
+                                                    −
                                                 </button>
                                                 <span>{quantity}</span>
                                                 <button
@@ -259,60 +227,36 @@ export default function SearchResults({ query = "", onBack, onClose }) {
                                                     onClick={() => handleIncrease(product.id)}
                                                     className="w-5 h-5 rounded-full border border-orange-300 flex items-center justify-center"
                                                 >
-                                                    <span className="text-sm leading-none">+</span>
+                                                    +
                                                 </button>
                                             </div>
                                         )}
-                                        <span className="text-[11px] text-orange-500">
-                                            2 Options
-                                        </span>
                                     </div>
                                 </div>
 
-                                <div className="mt-2 flex items-center gap-2">
-                                    <span className="px-2 py-0.5 rounded-md border border-gray-200 text-[11px] text-gray-700">
-                                        30g
-                                    </span>
-                                    <div className="flex items-center gap-1 bg-gray-100 rounded-full px-2 py-1">
-                                        <div className="flex items-center gap-0.5 text-[11px]">
-                                            {Array.from({ length: 5 }).map((_, index) => (
-                                                <span
-                                                    // eslint-disable-next-line react/no-array-index-key
-                                                    key={index}
-                                                    className={
-                                                        index < starValue
-                                                            ? "text-yellow-400"
-                                                            : "text-gray-300"
-                                                    }
-                                                >
-                                                    ★
-                                                </span>
-                                            ))}
-                                        </div>
-                                        {product.reviewCount && (
-                                            <span className="text-[11px] text-gray-600 ml-1">
-                                                ({product.reviewCount})
+                                <div className="mt-2 flex items-baseline gap-[2px] flex-wrap">
+                                    {formatPrice(product.price) && (
+                                        <p className="text-[10px] text-[#292E2C]">₹
+                                            <span className="text-[16px]">
+                                                {formatPrice(product.price)}
                                             </span>
-                                        )}
-                                    </div>
-                                </div>
+                                        </p>
 
-                                <div className="mt-2 flex items-baseline gap-2">
-                                    <span className="text-base font-semibold text-gray-900">
-                                        ₹{product.sp ?? product.mrp}
-                                    </span>
-                                    {product.mrp && product.sp && product.sp < product.mrp && (
-                                        <>
-                                            <span className="text-xs text-gray-400 line-through">
-                                                ₹{product.mrp}
-                                            </span>
-                                            {discountPercent && (
-                                                <span className="text-xs font-semibold text-red-500">
-                                                    -{discountPercent}%
-                                                </span>
-                                            )}
-                                        </>
                                     )}
+                                    {product.compare_at_price != null &&
+                                        product.compare_at_price > 0 &&
+                                        (product.price == null || product.compare_at_price > product.price) && (
+                                            <>
+                                                <span className="text-[12px] text-[#9DA6B2] line-through leading-[10px]">
+                                                    {formatPrice(product.compare_at_price)}
+                                                </span>
+                                                {getDiscountPercent(product.price, product.compare_at_price) != null && (
+                                                    <span className="text-xs font-semibold text-[#D13F44]">
+                                                        -{getDiscountPercent(product.price, product.compare_at_price)}%
+                                                    </span>
+                                                )}
+                                            </>
+                                        )}
                                 </div>
                             </div>
                         </div>
@@ -325,243 +269,6 @@ export default function SearchResults({ query = "", onBack, onClose }) {
                     </div>
                 )}
             </div>
-
-            {/* Bottom bar */}
-            <div className="fixed bottom-0 inset-x-0 z-30">
-                <div className="mx-4 mb-4 rounded-[28px] bg-white/95 backdrop-blur shadow-[0_4px_16px_rgba(15,23,42,0.16)] px-5 py-2 flex items-center text-sm">
-                    <button
-                        type="button"
-                        onClick={() => setIsSortOpen(true)}
-                        className="flex flex-1 items-center justify-center gap-1.5 text-gray-900 font-semibold"
-                    >
-                        <span>Sort</span>
-                        <svg
-                            width="18"
-                            height="18"
-                            viewBox="0 0 18 18"
-                            aria-hidden="true"
-                            className="text-gray-700"
-                        >
-                            <path
-                                d="M6 4L4 6L2 4"
-                                stroke="currentColor"
-                                strokeWidth="1.2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            />
-                            <path
-                                d="M4 2V6"
-                                stroke="currentColor"
-                                strokeWidth="1.2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            />
-                            <path
-                                d="M12 14L14 12L16 14"
-                                stroke="currentColor"
-                                strokeWidth="1.2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            />
-                            <path
-                                d="M14 16V12"
-                                stroke="currentColor"
-                                strokeWidth="1.2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            />
-                        </svg>
-                    </button>
-
-                    <div className="h-6 w-px mx-4 bg-gray-200" />
-
-                    <button
-                        type="button"
-                        onClick={() => setIsFilterOpen(true)}
-                        className="flex flex-1 items-center justify-center gap-1.5 text-gray-900 font-semibold"
-                    >
-                        <span>Filters</span>
-                        <svg
-                            width="18"
-                            height="18"
-                            viewBox="0 0 18 18"
-                            aria-hidden="true"
-                            className="text-gray-700"
-                        >
-                            <path
-                                d="M4 5H15"
-                                stroke="currentColor"
-                                strokeWidth="1.2"
-                                strokeLinecap="round"
-                            />
-                            <path
-                                d="M3 9H14"
-                                stroke="currentColor"
-                                strokeWidth="1.2"
-                                strokeLinecap="round"
-                            />
-                            <path
-                                d="M5 13H16"
-                                stroke="currentColor"
-                                strokeWidth="1.2"
-                                strokeLinecap="round"
-                            />
-                            <circle
-                                cx="7"
-                                cy="5"
-                                r="1.3"
-                                fill="white"
-                                stroke="currentColor"
-                                strokeWidth="1"
-                            />
-                            <circle
-                                cx="11"
-                                cy="9"
-                                r="1.3"
-                                fill="white"
-                                stroke="currentColor"
-                                strokeWidth="1"
-                            />
-                            <circle
-                                cx="9"
-                                cy="13"
-                                r="1.3"
-                                fill="white"
-                                stroke="currentColor"
-                                strokeWidth="1"
-                            />
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            {/* Sort sheet */}
-            {isSortOpen && (
-                <div className="fixed inset-0 z-40 flex items-end justify-center">
-                    <button
-                        type="button"
-                        className="absolute inset-0 bg-black/30"
-                        onClick={() => setIsSortOpen(false)}
-                    />
-                    <div className="relative w-full max-w-md bg-white rounded-t-3xl px-5 pt-3 pb-6">
-                        <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-3" />
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="text-base font-semibold">Sort by</div>
-                            <button
-                                type="button"
-                                onClick={() => setIsSortOpen(false)}
-                                className="w-7 h-7 rounded-full border border-gray-200 flex items-center justify-center"
-                            >
-                                <span className="text-lg leading-none">×</span>
-                            </button>
-                        </div>
-
-                        <div className="space-y-2 text-sm">
-                            {SORT_OPTIONS.map((option) => (
-                                <button
-                                    key={option.id}
-                                    type="button"
-                                    onClick={() => {
-                                        setSortBy(option.id);
-                                        setIsSortOpen(false);
-                                    }}
-                                    className={`w-full text-left py-2 ${sortBy === option.id
-                                        ? "text-orange-600 font-semibold"
-                                        : "text-gray-800"
-                                        }`}
-                                >
-                                    {option.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Filter sheet */}
-            {isFilterOpen && (
-                <div className="fixed inset-0 z-40 flex items-end justify-center">
-                    <button
-                        type="button"
-                        className="absolute inset-0 bg-black/30"
-                        onClick={() => setIsFilterOpen(false)}
-                    />
-                    <div className="relative w-full max-w-md bg-white rounded-t-3xl pt-3 pb-6 flex flex-col">
-                        <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-3" />
-
-                        <div className="px-5 mb-4 flex items-center justify-between">
-                            <div className="text-base font-semibold">Filters</div>
-                            {activeFiltersCount > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setSelectedCategories([]);
-                                        setSortBy("POPULARITY");
-                                    }}
-                                    className="text-xs text-orange-600 font-medium"
-                                >
-                                    Clear all
-                                </button>
-                            )}
-                        </div>
-
-                        <div className="flex flex-1 min-h-[220px] border-t border-b border-gray-100">
-                            <div className="w-28 border-r border-gray-100 text-sm">
-                                <button
-                                    type="button"
-                                    className="w-full text-left px-4 py-3 bg-orange-50 text-orange-700 font-semibold border-r-2 border-orange-500"
-                                >
-                                    Category
-                                    {selectedCategories.length > 0 && (
-                                        <span className="ml-1 text-[11px] rounded-full bg-orange-100 text-orange-700 px-1">
-                                            {selectedCategories.length}
-                                        </span>
-                                    )}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="w-full text-left px-4 py-3 text-gray-400"
-                                >
-                                    Issues
-                                </button>
-                                <button
-                                    type="button"
-                                    className="w-full text-left px-4 py-3 text-gray-400"
-                                >
-                                    Ingredients
-                                </button>
-                            </div>
-
-                            <div className="flex-1 px-4 py-3 text-sm space-y-2">
-                                {CATEGORY_OPTIONS.map((category) => (
-                                    <label
-                                        key={category}
-                                        className="flex items-center justify-between py-1.5"
-                                    >
-                                        <span className="text-gray-800">{category}</span>
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedCategories.includes(category)}
-                                            onChange={() => toggleCategory(category)}
-                                            className="w-4 h-4 rounded border-gray-300 text-orange-600"
-                                        />
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="px-5 pt-4">
-                            <button
-                                type="button"
-                                onClick={() => setIsFilterOpen(false)}
-                                className="w-full py-3 rounded-full bg-black text-white text-sm font-semibold"
-                            >
-                                Apply filters
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
