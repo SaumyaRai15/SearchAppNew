@@ -23,21 +23,41 @@ const getCategoryFromProduct = (product) => {
     return "Body";
 };
 
-const formatPrice = (n) => (n != null && !Number.isNaN(n) ? `${Math.round(n)}` : null);
+const formatPrice = (n) =>
+    n != null && !Number.isNaN(n) ? `${Math.round(n)}` : null;
 
 const getDiscountPercent = (price, compareAtPrice) => {
-    if (price == null || compareAtPrice == null || compareAtPrice <= 0 || price >= compareAtPrice) return null;
+    if (
+        price == null ||
+        compareAtPrice == null ||
+        compareAtPrice <= 0 ||
+        price >= compareAtPrice
+    )
+        return null;
+
     return Math.round((1 - price / compareAtPrice) * 100);
 };
 
 const StarRating = () => (
     <div className="flex items-center gap-0.5">
         {[1, 2, 3, 4, 5].map((i) => (
-            <span key={i} className="inline-block">
+            <span key={i}>
                 {i <= 4 ? (
-                    <Image src="/svg/star-yellow.svg" width={11} height={11} alt="" aria-hidden />
+                    <Image
+                        src="/svg/star-yellow.svg"
+                        width={11}
+                        height={11}
+                        alt=""
+                        aria-hidden
+                    />
                 ) : (
-                    <Image src="/svg/star-white.svg" width={12} height={12} alt="" aria-hidden />
+                    <Image
+                        src="/svg/star-white.svg"
+                        width={12}
+                        height={12}
+                        alt=""
+                        aria-hidden
+                    />
                 )}
             </span>
         ))}
@@ -66,25 +86,30 @@ const highlightMatch = (text, query) => {
     );
 };
 
-export default function SearchResults({ query = "" }) {
+export default function SearchResults({ query }) {
     const [products, setProducts] = useState([]);
     const [sortBy, setSortBy] = useState("POPULARITY");
-    const [isSortOpen, setIsSortOpen] = useState(false);
-    const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [quantities, setQuantities] = useState({});
 
-    const trimmedQuery = query.trim();
+    // Support both string and suggestion object
+    const searchText =
+        typeof query === "string"
+            ? query.trim()
+            : query?.q?.trim() || "";
 
-    // 🔥 FETCH FROM TYPESENSE
     useEffect(() => {
-        if (!trimmedQuery) {
+        if (!query) {
             setProducts([]);
             return;
         }
 
-        searchProducts(trimmedQuery).then(setProducts);
-    }, [trimmedQuery]);
+        if (typeof query === "string") {
+            searchProducts(query).then(setProducts);
+        } else {
+            searchProducts(query.q, query.filter_by).then(setProducts);
+        }
+    }, [query]);
 
     const toggleCategory = (category) => {
         setSelectedCategories((prev) =>
@@ -99,15 +124,11 @@ export default function SearchResults({ query = "" }) {
 
         switch (sortBy) {
             case "PRICE_LOW_HIGH":
-                sorted.sort(
-                    (a, b) => (a.price ?? 0) - (b.price ?? 0)
-                );
+                sorted.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
                 break;
 
             case "PRICE_HIGH_LOW":
-                sorted.sort(
-                    (a, b) => (b.price ?? 0) - (a.price ?? 0)
-                );
+                sorted.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
                 break;
 
             default:
@@ -151,16 +172,12 @@ export default function SearchResults({ query = "" }) {
         });
     };
 
-    const activeFiltersCount =
-        selectedCategories.length + (sortBy !== "POPULARITY" ? 1 : 0);
-
     return (
         <div className="relative min-h-screen bg-white pb-24">
-
-            {/* Results list */}
             <div className="mt-2 space-y-3">
                 {filteredProducts.map((product) => {
                     const quantity = quantities[product.id] ?? 0;
+
                     return (
                         <div
                             key={product.id}
@@ -180,27 +197,24 @@ export default function SearchResults({ query = "" }) {
                                 <div className="flex justify-between gap-3">
                                     <div className="min-w-0">
                                         <div className="text-[14px] text-[#292E2C] leading-[20px]">
-                                            {highlightMatch(product.title, trimmedQuery)}
+                                            {highlightMatch(product.title, searchText)}
                                         </div>
+
                                         <div className="text-[12px] text-[#7B818C] mb-0.5 leading-[16px]">
                                             {product.subtitle}
                                         </div>
-                                        {product.quantity_tag && (
-                                            <div className="text-[12px] text-[#7B818C] leading-[16px]">
-                                                {product.quantity_tag}
-                                            </div>
-                                        )}
+
                                         <div className="flex gap-x-2">
                                             <p className="text-[12px] leading-[16px] text-[#676B73] bg-[#F5F7FA] px-[4px]">
                                                 30g
                                             </p>
                                             <div className="flex gap-x-2 bg-[#F5F7FA] px-[4px] rounded-[2px] w-fit">
                                                 <StarRating />
-                                                <p className="text-[12px] leading-[16px] text-[#676B73]">(171)</p>
+                                                <p className="text-[12px] leading-[16px] text-[#676B73]">
+                                                    (171)
+                                                </p>
                                             </div>
                                         </div>
-
-
                                     </div>
 
                                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -236,25 +250,33 @@ export default function SearchResults({ query = "" }) {
 
                                 <div className="mt-2 flex items-baseline gap-[2px] flex-wrap">
                                     {formatPrice(product.price) && (
-                                        <p className="text-[10px] text-[#292E2C]">₹
+                                        <p className="text-[10px] text-[#292E2C]">
+                                            ₹
                                             <span className="text-[16px]">
                                                 {formatPrice(product.price)}
                                             </span>
                                         </p>
-
                                     )}
-                                    {product.compare_at_price != null &&
-                                        product.compare_at_price > 0 &&
-                                        (product.price == null || product.compare_at_price > product.price) && (
+
+                                    {product.compare_at_price &&
+                                        product.compare_at_price > product.price && (
                                             <>
-                                                <span className="text-[12px] text-[#9DA6B2] line-through leading-[10px]">
+                                                <span className="text-[12px] text-[#9DA6B2] line-through">
                                                     {formatPrice(product.compare_at_price)}
                                                 </span>
-                                                {getDiscountPercent(product.price, product.compare_at_price) != null && (
-                                                    <span className="text-xs font-semibold text-[#D13F44]">
-                                                        -{getDiscountPercent(product.price, product.compare_at_price)}%
-                                                    </span>
-                                                )}
+                                                {getDiscountPercent(
+                                                    product.price,
+                                                    product.compare_at_price
+                                                ) != null && (
+                                                        <span className="text-xs font-semibold text-[#D13F44]">
+                                                            -
+                                                            {getDiscountPercent(
+                                                                product.price,
+                                                                product.compare_at_price
+                                                            )}
+                                                            %
+                                                        </span>
+                                                    )}
                                             </>
                                         )}
                                 </div>

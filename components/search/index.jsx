@@ -16,29 +16,28 @@ export default function SearchComponent() {
     ];
 
     const recentProducts = products.slice(0, 3);
+
     const [searchValue, setSearchValue] = useState("");
     const [isResultsOpen, setIsResultsOpen] = useState(false);
-    const [resultsQuery, setResultsQuery] = useState("");
+    const [resultsQuery, setResultsQuery] = useState(null);
 
     const handleSubmitSearch = () => {
         const query = searchValue.trim();
         if (!query) return;
-        setResultsQuery(query);
+
+        setResultsQuery({ q: query });
         setIsResultsOpen(true);
     };
 
-    const handleSuggestionClick = (value) => {
-        const nextValue = value.trim();
-        setSearchValue(nextValue);
-        if (!nextValue) return;
-        setResultsQuery(nextValue);
-        setIsResultsOpen(true);
-    };
+    const handleSuggestionClick = (suggestion) => {
+        setSearchValue(suggestion.label);
 
-    const handleCloseResults = () => {
-        setIsResultsOpen(false);
-        setResultsQuery("");
-        setSearchValue("");
+        setResultsQuery({
+            q: suggestion.query,
+            filter_by: suggestion.filter_by,
+        });
+
+        setIsResultsOpen(true);
     };
 
     return (
@@ -54,11 +53,7 @@ export default function SearchComponent() {
 
             {searchValue ? (
                 isResultsOpen ? (
-                    <SearchResults
-                        query={resultsQuery || searchValue}
-                        onBack={() => setIsResultsOpen(false)}
-                        onClose={handleCloseResults}
-                    />
+                    <SearchResults query={resultsQuery} />
                 ) : (
                     <SearchSuggestionAndProducts
                         searchValue={searchValue}
