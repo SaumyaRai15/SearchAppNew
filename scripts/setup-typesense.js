@@ -34,6 +34,7 @@ async function createCollections() {
   // PRODUCTS
   await client.collections().create({
     name: "products",
+    enable_nested_fields: true,
     fields: [
       { name: "id", type: "string" },
       { name: "title", type: "string" },
@@ -47,6 +48,7 @@ async function createCollections() {
       { name: "product_type", type: "string[]", facet: true, optional: true },
       { name: "price", type: "float", facet: true, optional: true },
       { name: "compare_at_price", type: "float", facet: true, optional: true },
+      { name: "variants", type: "object[]", optional: true, facet: true },
       { name: "updated_at", type: "int64" },
     ],
     default_sorting_field: "updated_at",

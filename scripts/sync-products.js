@@ -63,6 +63,10 @@ const PRODUCTS_QUERY = `
               attributes {
                 price
                 compareAtPrice
+                shopifyVariantId
+                title
+                measurementUnit
+                measurementValue
               }
             }
           }
@@ -129,6 +133,8 @@ function transformProduct(product) {
     if (titleLower.includes(k)) productType.push(k);
   });
 
+  const variants = attrs.variants.data.map((v) => v);
+
   return {
     id: product.id,
     product_id: product.id,
@@ -142,6 +148,7 @@ function transformProduct(product) {
     audience,
     product_type: productType,
     compare_at_price: compareAtPrices.length ? Math.min(...compareAtPrices) : null,
+    variants,
     price: prices.length ? Math.min(...prices) : null,
     updated_at: isoToUnix(attrs.updatedAt),
   };
