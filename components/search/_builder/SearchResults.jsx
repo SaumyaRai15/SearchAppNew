@@ -2,7 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { searchProducts, fetchFacets } from "@/lib/search";
+import { formatCategoryLabel } from "../../../constants/categoryUtils";
+
+
+const SortSheet = dynamic(() => import("./SortSheet"));
+const FilterSheet = dynamic(() => import("./FilterSheet"));
 
 const SORT_OPTIONS = [
     { id: "PRICE_LOW_HIGH", label: "Price - Low to High" },
@@ -15,16 +21,6 @@ const getCategoryFromProduct = (product) => {
     }
 
     return null;
-};
-
-const formatCategoryLabel = (category) => {
-    if (!category) return "";
-
-    return category
-        .split(/[\/_-]/)
-        .filter(Boolean)
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(" ");
 };
 
 const formatPrice = (n) => (n != null && !Number.isNaN(n) ? `${Math.round(n)}` : null);
@@ -419,195 +415,29 @@ export default function SearchResults({ query }) {
             </div>
 
             {/* Sort bottom sheet */}
-            {isSortOpen && (
-                <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40">
-                    <div className="w-full max-w-md rounded-t-2xl bg-white pb-6 pt-3 px-4">
-                        <div className="flex justify-center mb-3">
-                            <button
-                                type="button"
-                                onClick={() => setIsSortOpen(false)}
-                                className="w-8 h-8 rounded-full bg-[#F3F4F6] flex items-center justify-center text-xl leading-none"
-                                aria-label="Close sort"
-                            >
-                                ×
-                            </button>
-                        </div>
-                        <h2 className="text-base font-semibold text-[#111827] mb-3">Sort by</h2>
-                        <div className="divide-y divide-gray-100">
-                            {SORT_OPTIONS.map((option) => {
-                                const active = sortBy === option.id;
-
-                                return (
-                                    <button
-                                        key={option.id}
-                                        type="button"
-                                        onClick={() => {
-                                            setSortBy(option.id);
-                                            setIsSortOpen(false);
-                                        }}
-                                        className={`w-full text-left py-3 text-sm ${active ? "text-[#111827] font-semibold" : "text-[#4B5563]"
-                                            }`}
-                                    >
-                                        {option.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-            )}
+            <SortSheet
+                isOpen={isSortOpen}
+                onClose={() => setIsSortOpen(false)}
+                sortBy={sortBy}
+                onSortChange={setSortBy}
+                sortOptions={SORT_OPTIONS}
+            />
 
             {/* Filters bottom sheet */}
-            {isFilterOpen && (
-                <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40">
-                    <div className="w-full max-w-md rounded-t-2xl bg-white pb-6 pt-3 px-4">
-                        <div className="flex justify-center mb-3">
-                            <button
-                                type="button"
-                                onClick={() => setIsFilterOpen(false)}
-                                className="w-8 h-8 rounded-full bg-[#F3F4F6] flex items-center justify-center text-xl leading-none"
-                                aria-label="Close filters"
-                            >
-                                ×
-                            </button>
-                        </div>
-
-                        <div className="flex items-center justify-between mb-3">
-                            <h2 className="text-base font-semibold text-[#111827]">Filters</h2>
-                            {(selectedCategories.length > 0 ||
-                                selectedCollections.length > 0 ||
-                                priceRange.min !== "" ||
-                                priceRange.max !== "") && (
-                                    <button type="button" onClick={clearFilters} className="text-xs font-medium text-[#EF4444]">
-                                        Clear all
-                                    </button>
-                                )}
-                        </div>
-
-                        <div className="space-y-5 max-h-[60vh] overflow-y-auto">
-                            {/* Category filter */}
-                            {categoryOptions.length > 0 && (
-                                <div>
-                                    <p className="text-xs font-medium text-[#6B7280] mb-2">Category</p>
-                                    <div className="space-y-2">
-                                        {facetCategories.map((item) => {
-                                            const value = item.value;
-                                            const checked = selectedCategories.includes(value);
-
-                                            return (
-                                                <label key={value} className="flex items-center justify-between text-sm">
-                                                    <span className="text-[#111827]">{formatCategoryLabel(value)}</span>
-                                                    <span className="flex items-center gap-2">
-                                                        <span className="inline-flex items-center justify-center min-w-[24px] px-2 h-[20px] rounded-full bg-[#F3F4F6] text-[11px] text-[#6B7280]">
-                                                            {item.count}
-                                                        </span>
-                                                        <input
-                                                            type="checkbox"
-                                                            className="h-4 w-4 rounded border-gray-300 text-[#111827] focus:ring-[#111827]"
-                                                            checked={checked}
-                                                            onChange={() => toggleCategory(value)}
-                                                        />
-                                                    </span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Collections filter */}
-                            {collectionOptions.length > 0 && (
-                                <div>
-                                    <p className="text-xs font-medium text-[#6B7280] mb-2">Collections</p>
-                                    <div className="space-y-2">
-                                        {facetCollections.map((item) => {
-                                            const value = item.value;
-                                            const checked = selectedCollections.includes(value);
-
-                                            return (
-                                                <label key={value} className="flex items-center justify-between text-sm">
-                                                    <span className="text-[#111827]">{formatCategoryLabel(value)}</span>
-                                                    <span className="flex items-center gap-2">
-                                                        <span className="inline-flex items-center justify-center min-w-[24px] px-2 h-[20px] rounded-full bg-[#F3F4F6] text-[11px] text-[#6B7280]">
-                                                            {item.count}
-                                                        </span>
-                                                        <input
-                                                            type="checkbox"
-                                                            className="h-4 w-4 rounded border-gray-300 text-[#111827] focus:ring-[#111827]"
-                                                            checked={checked}
-                                                            onChange={() =>
-                                                                setSelectedCollections((prev) =>
-                                                                    checked ? prev.filter((c) => c !== value) : [...prev, value],
-                                                                )
-                                                            }
-                                                        />
-                                                    </span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Price range filter */}
-                            <div>
-                                <p className="text-xs font-medium text-[#6B7280] mb-2">Price range</p>
-                                <div className="flex items-center gap-3">
-                                    <div className="flex-1">
-                                        <label className="block text-[11px] text-[#9CA3AF] mb-1">Min</label>
-                                        <div className="flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1.5">
-                                            <span className="text-xs text-[#6B7280]">₹</span>
-                                            <input
-                                                type="number"
-                                                inputMode="numeric"
-                                                min={0}
-                                                className="w-full text-sm outline-none border-none bg-transparent"
-                                                value={priceRange.min}
-                                                onChange={(e) =>
-                                                    setPriceRange((prev) => ({
-                                                        ...prev,
-                                                        min: e.target.value,
-                                                    }))
-                                                }
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <span className="text-xs text-[#9CA3AF]">to</span>
-
-                                    <div className="flex-1">
-                                        <label className="block text-[11px] text-[#9CA3AF] mb-1">Max</label>
-                                        <div className="flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1.5">
-                                            <span className="text-xs text-[#6B7280]">₹</span>
-                                            <input
-                                                type="number"
-                                                inputMode="numeric"
-                                                min={0}
-                                                className="w-full text-sm outline-none border-none bg-transparent"
-                                                value={priceRange.max}
-                                                onChange={(e) =>
-                                                    setPriceRange((prev) => ({
-                                                        ...prev,
-                                                        max: e.target.value,
-                                                    }))
-                                                }
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={() => setIsFilterOpen(false)}
-                            className="mt-5 w-full h-11 rounded-xl bg-[#111827] text-sm font-semibold text-white"
-                        >
-                            Apply filters
-                        </button>
-                    </div>
-                </div>
-            )}
+            <FilterSheet
+                isOpen={isFilterOpen}
+                onClose={() => setIsFilterOpen(false)}
+                selectedCategories={selectedCategories}
+                selectedCollections={selectedCollections}
+                priceRange={priceRange}
+                clearFilters={clearFilters}
+                categoryOptions={categoryOptions}
+                facetCategories={facetCategories}
+                facetCollections={facetCollections}
+                toggleCategory={toggleCategory}
+                setSelectedCollections={setSelectedCollections}
+                setPriceRange={setPriceRange}
+            />
         </div>
     );
 }
