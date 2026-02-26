@@ -49,6 +49,7 @@ export default function SearchComponent() {
                 onClear={() => setSearchValue("")}
                 onSubmit={handleSubmitSearch}
                 onBack={isResultsOpen ? () => setIsResultsOpen(false) : undefined}
+                isResultsOpen={isResultsOpen}
             />
 
             {searchValue ? (

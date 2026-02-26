@@ -1,14 +1,8 @@
-"use client"
+"use client";
 
 import Image from "next/image";
 
-export default function SearchBar({
-    searchValue,
-    onChange,
-    onClear,
-    onSubmit,
-    onBack,
-}) {
+export default function SearchBar({ searchValue, onChange, onClear, onSubmit, onBack, isResultsOpen }) {
     const handleKeyDown = (event) => {
         if (event.key === "Enter") {
             event.preventDefault();
@@ -45,11 +39,11 @@ export default function SearchBar({
                             <button
                                 type="button"
                                 onClick={onClear}
-                                className="absolute right-0 top-1/2 -translate-y-1/2 w-[12px] h-[12px]"
+                                className={`absolute right-0 top-1/2 -translate-y-1/2  ${isResultsOpen ? "w-[20.5px] h-[20.5px]" : "w-[12px] h-[12px]"}`}
                                 aria-label="Clear search"
                             >
                                 <Image
-                                    src="/svg/cross.svg"
+                                    src={isResultsOpen ? "/svg/cross-circle-gray.svg" : "/svg/cross.svg"}
                                     alt="Clear search"
                                     fill
                                     unoptimized
