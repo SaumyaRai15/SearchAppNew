@@ -5,7 +5,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { searchProducts, fetchFacets } from "@/lib/search";
 import { formatCategoryLabel } from "../../../constants/categoryUtils";
-
+import SortAndFilterBar from "./SortAndFilterBar";
 
 const SortSheet = dynamic(() => import("./SortSheet"));
 const FilterSheet = dynamic(() => import("./FilterSheet"));
@@ -374,45 +374,13 @@ export default function SearchResults({ query }) {
             </div>
 
             {/* Sort & Filter bar */}
-            <div className="w-full fixed inset-x-0 bottom-0 z-30 bg-white border-t border-gray-200 px-5 flex items-center justify-between">
-                <button
-                    type="button"
-                    onClick={() => setIsSortOpen(true)}
-                    className={`py-3 flex items-center justify-center gap-2 text-sm font-medium w-1/2 border-[#E6EAF0] border-r ${sortBy ? "text-[#C4512B]" : "text-[#292E2C]"}`}
-                >
-                    {sortBy ? (
-                        <span className="text-[14px]">{SORT_OPTIONS.find((opt) => opt.id === sortBy)?.label ?? "Selected"}</span>
-                    ) : (
-                        <span>Sort</span>
-                    )}
-                    <span className="relative w-4 h-4">
-                        {sortBy ? (
-                            <Image src="/svg/sort-active.svg" alt="Sort" fill sizes="16px" unoptimized />
-                        ) : (
-                            <Image src="/svg/sort.svg" alt="Sort" fill sizes="16px" unoptimized />
-                        )}
-                    </span>
-                </button>
-
-                <button
-                    type="button"
-                    onClick={() => setIsFilterOpen(true)}
-                    className={`py-3 flex items-center gap-2 text-sm font-medium w-1/2 justify-center ${activeFilterCount > 0 ? "text-[#C4512B]" : "text-[#292E2C]"}`}
-                >
-                    <span>Filters</span>
-                    {activeFilterCount < 1 && (
-                        <span className="relative w-4 h-4">
-                            <Image src="/svg/filter.svg" alt="Filters" fill sizes="16px" unoptimized />
-                        </span>
-                    )}
-
-                    {activeFilterCount > 0 && (
-                        <div className="text-[#FFFFFF] text-[10px] w-[16px] h-[16px] flex items-center justify-center font-semibold bg-[#C4512B] rounded-[1000px]">
-                            {activeFilterCount}
-                        </div>
-                    )}
-                </button>
-            </div>
+            <SortAndFilterBar
+                sortBy={sortBy}
+                setIsSortOpen={setIsSortOpen}
+                setIsFilterOpen={setIsFilterOpen}
+                activeFilterCount={activeFilterCount}
+                sortOptions={SORT_OPTIONS}
+            />
 
             {/* Sort bottom sheet */}
             <SortSheet
