@@ -4,18 +4,20 @@ export default function SortSheet({ isOpen, onClose, sortBy, onSortChange, sortO
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40">
-            <div className="w-full max-w-md rounded-t-2xl bg-white pb-6 pt-3 px-4">
-                <div className="flex justify-center mb-3">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="w-8 h-8 rounded-full bg-[#F3F4F6] flex items-center justify-center text-xl leading-none"
-                        aria-label="Close sort"
-                    >
-                        ×
-                    </button>
-                </div>
+        <div className="fixed inset-0 z-40 flex flex-col items-center justify-end backdrop-blur-sm bg-black/30">
+            {/* Close button — outside the sheet */}
+            <div className="w-full flex justify-center pb-[24px] px-4">
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-lg font-medium text-[#374151] shadow"
+                    aria-label="Close sort"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <div className="w-full max-w-md rounded-t-2xl bg-white pb-6 pt-4 px-4">
                 <h2 className="text-[16px] text-[#18191A] font-black leading-[24px] mb-3">Sort by</h2>
                 <div className="divide-y divide-gray-100">
                     {sortOptions.map((option) => {
@@ -38,6 +40,7 @@ export default function SortSheet({ isOpen, onClose, sortBy, onSortChange, sortO
                     })}
                 </div>
             </div>
+            {/* end sheet */}
         </div>
     );
 }

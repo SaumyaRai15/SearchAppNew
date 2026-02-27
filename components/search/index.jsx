@@ -69,7 +69,7 @@ export default function SearchComponent() {
             {searchValue ? (
                 isResultsOpen ? (
                     // key=query.q remounts SearchResults on a new search so filter state resets
-                    <SearchResults query={resultsQuery} key={resultsQuery?.q} />
+                    <SearchResults query={resultsQuery} />
                 ) : (
                     <SearchSuggestionAndProducts
                         searchValue={searchValue}

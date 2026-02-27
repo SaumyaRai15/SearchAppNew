@@ -17,14 +17,6 @@ const SORT_OPTIONS = [
     { id: "PRICE_HIGH_LOW", label: "Price - High to low" },
 ];
 
-const getCategoryFromProduct = (product) => {
-    if (Array.isArray(product.categories) && product.categories.length > 0) {
-        return product.categories[0];
-    }
-
-    return null;
-};
-
 const formatPrice = (n) => (n != null && !Number.isNaN(n) ? `${Math.round(n)}` : null);
 
 const getDiscountPercent = (price, compareAtPrice) => {
@@ -128,9 +120,16 @@ export default function SearchResults({ query }) {
         return filters.join(" && ") || undefined;
     }, [baseFilterBy, selectedCategories, selectedCollections]);
 
-    // Re-fetches whenever query text, filters, or sort changes.
-    // keepPreviousData keeps the last results visible while the new fetch runs → no blink.
-    // facet_counts in the response always cover ALL matching docs so facets are always accurate.
+    // Query 1: fires only when search term changes — used for facets only so the
+    // full list of categories/collections is always visible regardless of active filters
+    const { data: facetData } = useQuery({
+        queryKey: ["search-facets", searchText, baseFilterBy],
+        queryFn: () => searchProducts(searchText, baseFilterBy),
+        enabled: !!searchText,
+        placeholderData: keepPreviousData,
+    });
+
+    // Query 2: fires on every filter/sort change — used for products only
     const {
         data: searchData,
         isFetching,
@@ -142,8 +141,19 @@ export default function SearchResults({ query }) {
         placeholderData: keepPreviousData,
     });
 
-    const { products = [], facets: { categories: facetCategories = [], collections: facetCollections = [] } = {} } =
-        searchData ?? {};
+    const { products = [] } = searchData ?? {};
+    const { facets: { categories: facetCategories = [], collections: facetCollections = [] } = {} } = facetData ?? {};
+
+    // Reset filters (but not sort) whenever the search query changes
+    const prevSearchText = useRef(searchText);
+    useEffect(() => {
+        if (prevSearchText.current !== searchText) {
+            prevSearchText.current = searchText;
+            setSelectedCategories([]);
+            setSelectedCollections([]);
+            setPriceRange({ min: "", max: "" });
+        }
+    }, [searchText]);
 
     // Sync filter/sort state back to URL whenever it changes (skip the first mount)
     const isInitialized = useRef(false);
@@ -164,9 +174,6 @@ export default function SearchResults({ query }) {
 
         router.replace(`?${params.toString()}`, { scroll: false });
     }, [sortBy, selectedCategories, selectedCollections, priceRange]);
-
-    const categoryOptions = useMemo(() => facetCategories.map((item) => item.value), [facetCategories]);
-    const collectionOptions = useMemo(() => facetCollections.map((item) => item.value), [facetCollections]);
 
     const toggleCategory = (category) => {
         setSelectedCategories((prev) =>
@@ -429,13 +436,13 @@ export default function SearchResults({ query }) {
                 selectedCategories={selectedCategories}
                 selectedCollections={selectedCollections}
                 priceRange={priceRange}
-                clearFilters={clearFilters}
-                categoryOptions={categoryOptions}
                 facetCategories={facetCategories}
                 facetCollections={facetCollections}
-                toggleCategory={toggleCategory}
-                setSelectedCollections={setSelectedCollections}
-                setPriceRange={setPriceRange}
+                onApply={({ categories, collections, priceRange: pr }) => {
+                    setSelectedCategories(categories);
+                    setSelectedCollections(collections);
+                    setPriceRange(pr);
+                }}
             />
         </div>
     );
