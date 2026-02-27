@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import SearchIndex from "../../components/search";
 
 export default function SearchPage() {
-    return <SearchIndex />;
+    return (
+        <Suspense>
+            <SearchIndex />
+        </Suspense>
+    );
 }

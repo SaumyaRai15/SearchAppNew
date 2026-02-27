@@ -21,7 +21,7 @@ export default function SearchSuggestionAndProducts({
         }
 
         fetchSuggestions(query).then(setSuggestions);
-        searchProducts(query).then((res) => setProducts(res.slice(0, 8)));
+        searchProducts(query).then((res) => setProducts(res.products.slice(0, 8)));
     }, [query]);
 
     const highlightMatch = (text) => {

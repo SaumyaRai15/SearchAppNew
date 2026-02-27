@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { searchProducts, fetchFacets } from "@/lib/search";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useSearchParams, useRouter } from "next/navigation";
+import { searchProducts } from "@/lib/search";
 import { formatCategoryLabel } from "../../../constants/categoryUtils";
 import SortAndFilterBar from "./SortAndFilterBar";
 
@@ -45,6 +47,21 @@ const StarRating = () => (
     </div>
 );
 
+const SkeletonCard = () => (
+    <div className="flex gap-3 bg-white py-3 border-b border-gray-100 animate-pulse">
+        <div className="w-[72px] h-[111px] rounded-lg bg-gray-200 flex-shrink-0" />
+        <div className="flex-1 flex flex-col gap-2 pt-1">
+            <div className="h-[14px] bg-gray-200 rounded w-3/4" />
+            <div className="h-3 bg-gray-200 rounded w-1/2" />
+            <div className="h-3 bg-gray-200 rounded w-1/4" />
+            <div className="mt-4 flex justify-end">
+                <div className="h-7 bg-gray-200 rounded-xl w-16" />
+            </div>
+            <div className="mt-auto h-4 bg-gray-200 rounded w-1/3" />
+        </div>
+    </div>
+);
+
 const highlightMatch = (text, query) => {
     if (!text || !query) return <span>{text}</span>;
 
@@ -68,33 +85,30 @@ const highlightMatch = (text, query) => {
 };
 
 export default function SearchResults({ query }) {
-    const [products, setProducts] = useState([]);
-    const [sortBy, setSortBy] = useState("");
-    const [selectedCategories, setSelectedCategories] = useState([]);
-    const [selectedCollections, setSelectedCollections] = useState([]);
-    const [priceRange, setPriceRange] = useState({ min: "", max: "" });
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
+    // Initialise all filter/sort state from URL so a direct link loads correctly
+    const [sortBy, setSortBy] = useState(() => searchParams.get("sort") || "");
+    const [selectedCategories, setSelectedCategories] = useState(() => {
+        const cats = searchParams.get("categories");
+        return cats ? cats.split(",").filter(Boolean) : [];
+    });
+    const [selectedCollections, setSelectedCollections] = useState(() => {
+        const cols = searchParams.get("collections");
+        return cols ? cols.split(",").filter(Boolean) : [];
+    });
+    const [priceRange, setPriceRange] = useState(() => ({
+        min: searchParams.get("price_min") || "",
+        max: searchParams.get("price_max") || "",
+    }));
     const [quantities, setQuantities] = useState({});
     const [isSortOpen, setIsSortOpen] = useState(false);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
-    const [facetCategories, setFacetCategories] = useState([]);
-    const [facetCollections, setFacetCollections] = useState([]);
 
     // Support both string and suggestion object
     const searchText = typeof query === "string" ? query.trim() : query?.q?.trim() || "";
-
     const baseFilterBy = typeof query === "string" ? undefined : query?.filter_by || undefined;
-
-    useEffect(() => {
-        fetchFacets()
-            .then(({ categories, collections }) => {
-                setFacetCategories(categories);
-                setFacetCollections(collections);
-            })
-            .catch(() => {
-                setFacetCategories([]);
-                setFacetCollections([]);
-            });
-    }, []);
 
     const combinedFilterBy = useMemo(() => {
         const filters = [];
@@ -114,17 +128,44 @@ export default function SearchResults({ query }) {
         return filters.join(" && ") || undefined;
     }, [baseFilterBy, selectedCategories, selectedCollections]);
 
+    // Re-fetches whenever query text, filters, or sort changes.
+    // keepPreviousData keeps the last results visible while the new fetch runs → no blink.
+    // facet_counts in the response always cover ALL matching docs so facets are always accurate.
+    const {
+        data: searchData,
+        isFetching,
+        isPending,
+    } = useQuery({
+        queryKey: ["search", searchText, combinedFilterBy, sortBy],
+        queryFn: () => searchProducts(searchText, combinedFilterBy, sortBy),
+        enabled: !!searchText,
+        placeholderData: keepPreviousData,
+    });
+
+    const { products = [], facets: { categories: facetCategories = [], collections: facetCollections = [] } = {} } =
+        searchData ?? {};
+
+    // Sync filter/sort state back to URL whenever it changes (skip the first mount)
+    const isInitialized = useRef(false);
     useEffect(() => {
-        if (!searchText) {
-            setProducts([]);
+        if (!isInitialized.current) {
+            isInitialized.current = true;
             return;
         }
 
-        searchProducts(searchText, combinedFilterBy).then(setProducts);
-    }, [searchText, combinedFilterBy]);
+        const params = new URLSearchParams();
+        if (searchText) params.set("q", searchText);
+        if (baseFilterBy) params.set("filter_by", baseFilterBy);
+        if (sortBy) params.set("sort", sortBy);
+        if (selectedCategories.length) params.set("categories", selectedCategories.join(","));
+        if (selectedCollections.length) params.set("collections", selectedCollections.join(","));
+        if (priceRange.min) params.set("price_min", priceRange.min);
+        if (priceRange.max) params.set("price_max", priceRange.max);
+
+        router.replace(`?${params.toString()}`, { scroll: false });
+    }, [sortBy, selectedCategories, selectedCollections, priceRange]);
 
     const categoryOptions = useMemo(() => facetCategories.map((item) => item.value), [facetCategories]);
-
     const collectionOptions = useMemo(() => facetCollections.map((item) => item.value), [facetCollections]);
 
     const toggleCategory = (category) => {
@@ -140,44 +181,20 @@ export default function SearchResults({ query }) {
         setSortBy("");
     };
 
-    const applySort = (list) => {
-        const sorted = [...list];
-
-        switch (sortBy) {
-            case "PRICE_LOW_HIGH":
-                sorted.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
-                break;
-
-            case "PRICE_HIGH_LOW":
-                sorted.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
-                break;
-
-            default:
-                break;
-        }
-
-        return sorted;
-    };
-
+    // Price range stays client-side (continuous input — no need for a round-trip per keystroke)
     const filteredProducts = useMemo(() => {
-        let list = products;
+        if (priceRange.min === "" && priceRange.max === "") return products;
 
-        if (priceRange.min !== "" || priceRange.max !== "") {
-            const min = priceRange.min !== "" ? Number(priceRange.min) : null;
-            const max = priceRange.max !== "" ? Number(priceRange.max) : null;
+        const min = priceRange.min !== "" ? Number(priceRange.min) : null;
+        const max = priceRange.max !== "" ? Number(priceRange.max) : null;
 
-            list = list.filter((product) => {
-                const price = product.price ?? 0;
-
-                if (min != null && price < min) return false;
-                if (max != null && price > max) return false;
-
-                return true;
-            });
-        }
-
-        return applySort(list);
-    }, [products, selectedCategories, priceRange, sortBy]);
+        return products.filter((product) => {
+            const price = product.price ?? 0;
+            if (min != null && price < min) return false;
+            if (max != null && price > max) return false;
+            return true;
+        });
+    }, [products, priceRange]);
 
     const handleIncrease = (id) => {
         setQuantities((prev) => ({
@@ -220,9 +237,23 @@ export default function SearchResults({ query }) {
                     ? `Up to ₹${priceRange.max}`
                     : "";
 
+    // isPending = no data at all yet (first load for this query key)
+    // isFetching && !isPending = new query in-flight but we have previous data to show
+    if (isPending && isFetching) {
+        return (
+            <div className="relative min-h-screen bg-white pb-24">
+                <div className="mt-2 space-y-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <SkeletonCard key={i} />
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="relative min-h-screen bg-white pb-24">
-            <div className="mt-2 space-y-3">
+            <div className={`mt-2 space-y-3 transition-opacity duration-150 ${isFetching ? "opacity-50" : "opacity-100"}`}>
                 {hasActiveFiltersOrSort && (
                     <div className="px-1">
                         <div className="flex items-center justify-between gap-2">
