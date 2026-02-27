@@ -55,7 +55,7 @@ export default function FilterSheet({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-40 flex flex-col items-center justify-end backdrop-blur-sm bg-black/30">
+        <div className="fixed inset-0 z-40 flex flex-col items-center justify-end backdrop-blur-[8px] bg-black/30">
             {/* Close button — outside the sheet */}
             <div className="w-full flex justify-center pb-[24px] px-4">
                 <button
