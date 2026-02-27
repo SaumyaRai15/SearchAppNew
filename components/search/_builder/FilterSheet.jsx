@@ -52,10 +52,19 @@ export default function FilterSheet({
 
     const [activeTab, setActiveTab] = useState(tabs[0]?.id ?? "category");
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-40 flex flex-col items-center justify-end backdrop-blur-[8px] bg-black/30">
+        <div
+            className={`fixed inset-0 z-40 flex flex-col items-center justify-end transition-all duration-300 ease-in-out ${
+                isOpen
+                    ? "backdrop-blur-[8px] bg-black/30 pointer-events-auto"
+                    : "backdrop-blur-0 bg-transparent pointer-events-none"
+            }`}
+        >
+            <div
+                className={`w-full max-w-md flex flex-col transition-transform duration-300 ease-out ${
+                    isOpen ? "translate-y-0" : "translate-y-full"
+                }`}
+            >
             {/* Close button — outside the sheet */}
             <div className="w-full flex justify-center pb-[24px] px-4">
                 <button
@@ -68,7 +77,7 @@ export default function FilterSheet({
                 </button>
             </div>
 
-            <div className="w-full max-w-md rounded-t-2xl bg-white flex flex-col" style={{ maxHeight: "80vh" }}>
+            <div className="w-full rounded-t-2xl bg-white flex flex-col" style={{ maxHeight: "80vh" }}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 pt-4 pb-[16px] shrink-0 border-b border-gray-100">
                     <h2 className="text-base font-bold text-[#111827]">Filters</h2>
@@ -226,6 +235,7 @@ export default function FilterSheet({
                         Apply filters
                     </button>
                 </div>
+            </div>
             </div>
             {/* end sheet */}
         </div>

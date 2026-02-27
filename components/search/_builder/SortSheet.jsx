@@ -1,10 +1,19 @@
 import React from "react";
 
 export default function SortSheet({ isOpen, onClose, sortBy, onSortChange, sortOptions }) {
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-40 flex flex-col items-center justify-end backdrop-blur-[8px] bg-black/30">
+        <div
+            className={`fixed inset-0 z-40 flex flex-col items-center justify-end transition-all duration-300 ease-in-out ${
+                isOpen
+                    ? "backdrop-blur-[8px] bg-black/30 pointer-events-auto"
+                    : "backdrop-blur-0 bg-transparent pointer-events-none"
+            }`}
+        >
+            <div
+                className={`w-full max-w-md flex flex-col transition-transform duration-300 ease-out ${
+                    isOpen ? "translate-y-0" : "translate-y-full"
+                }`}
+            >
             {/* Close button — outside the sheet */}
             <div className="w-full flex justify-center pb-[24px] px-4">
                 <button
@@ -17,7 +26,9 @@ export default function SortSheet({ isOpen, onClose, sortBy, onSortChange, sortO
                 </button>
             </div>
 
-            <div className="w-full max-w-md rounded-t-2xl bg-white pb-6 pt-4 px-4">
+            <div
+                className="w-full rounded-t-2xl bg-white pb-6 pt-4 px-4"
+            >
                 <h2 className="text-[16px] text-[#18191A] font-black leading-[24px] mb-3">Sort by</h2>
                 <div className="divide-y divide-gray-100">
                     {sortOptions.map((option) => {
@@ -31,8 +42,9 @@ export default function SortSheet({ isOpen, onClose, sortBy, onSortChange, sortO
                                     onSortChange(option.id);
                                     onClose();
                                 }}
-                                className={`w-full text-left py-3 text-[16px] leading-[24px] ${active ? "text-[#111827] font-semibold" : "text-[#292E2C]"
-                                    }`}
+                                className={`w-full text-left py-3 text-[16px] leading-[24px] ${
+                                    active ? "text-[#111827] font-semibold" : "text-[#292E2C]"
+                                }`}
                             >
                                 {option.label}
                             </button>
@@ -40,8 +52,7 @@ export default function SortSheet({ isOpen, onClose, sortBy, onSortChange, sortO
                     })}
                 </div>
             </div>
-            {/* end sheet */}
+            </div>
         </div>
     );
 }
-
