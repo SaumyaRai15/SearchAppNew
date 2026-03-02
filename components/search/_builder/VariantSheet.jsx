@@ -8,11 +8,35 @@ const getDiscountPercent = (price, compareAtPrice) => {
     return Math.round((1 - price / compareAtPrice) * 100);
 };
 
+const StarRating = () => (
+    <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((i) => (
+            <span key={i}>
+                {i <= 4 ? (
+                    <Image src="/svg/star-yellow.svg" width={11} height={11} alt="" aria-hidden />
+                ) : (
+                    <Image src="/svg/star-white.svg" width={11} height={11} alt="" aria-hidden />
+                )}
+            </span>
+        ))}
+    </div>
+);
+
 export default function VariantSheet({ isOpen, onClose, product, quantities, onIncrease, onDecrease }) {
     const lastProductRef = useRef(null);
     if (product) lastProductRef.current = product;
     const displayProduct = isOpen ? product : lastProductRef.current;
     const variants = displayProduct?.variants ?? [];
+
+    const firstMeasurement = (() => {
+        for (const v of variants) {
+            const attrs = v.attributes ?? {};
+            if (attrs.measurementValue != null && attrs.measurementUnit) {
+                return `${attrs.measurementValue}${attrs.measurementUnit}`;
+            }
+        }
+        return null;
+    })();
 
     return (
         <div
@@ -40,29 +64,58 @@ export default function VariantSheet({ isOpen, onClose, product, quantities, onI
                 </div>
 
                 <div className="w-full rounded-t-2xl bg-white overflow-y-auto" style={{ maxHeight: "80vh" }}>
+                    {/* Drag handle
+                    <div className="flex justify-center pt-3 pb-1">
+                        <div className="w-10 h-1 rounded-full bg-gray-200" />
+                    </div> */}
+
                     {displayProduct && (
                         <>
                             {/* Product header */}
-                            <div className="flex gap-3 px-4 pt-4 pb-3 border-b border-gray-100">
-                                <div className="relative w-[72px] h-[72px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                            <div className="flex gap-3 px-4 pt-4 pb-4">
+                                <div className="relative w-[48px] h-[72px] rounded-[8px] overflow-hidden bg-gray-100 flex-shrink-0">
                                     {displayProduct.featured_image && (
-                                        <Image src={displayProduct.featured_image} alt={displayProduct.title} fill className="object-cover" />
+                                        <Image
+                                            src={displayProduct.featured_image}
+                                            alt={displayProduct.title}
+                                            fill
+                                            className="object-cover"
+                                        />
                                     )}
                                 </div>
-                                <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                    <p className="text-[14px] font-semibold text-[#292E2C] leading-[20px]">{displayProduct.title}</p>
+                                <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+                                    <p className="text-[16px] font-medium text-[#303133] leading-[24px]">
+                                        {displayProduct.title}
+                                    </p>
                                     {displayProduct.subtitle && (
-                                        <p className="text-[12px] text-[#7B818C] leading-[16px] mt-0.5">{displayProduct.subtitle}</p>
+                                        <p className="text-[12px] text-[#7B818C] leading-[16px]">
+                                            {displayProduct.subtitle}
+                                        </p>
                                     )}
+                                    <div className="flex gap-x-2 mt-0.5">
+                                        {firstMeasurement && (
+                                            <p className="text-[12px] leading-[16px] text-[#676B73] bg-[#F5F7FA] px-[4px] rounded-[2px]">
+                                                {firstMeasurement}
+                                            </p>
+                                        )}
+                                        <div className="flex gap-x-2 bg-[#F5F7FA] px-[4px] rounded-[2px] w-fit">
+                                            <StarRating />
+                                            <p className="text-[12px] leading-[16px] text-[#676B73]">(171)</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Variants list */}
-                            <div className="px-4 py-3 space-y-1 pb-8">
+                            <div className="px-4 pb-8">
+                                {/* "Buying options" row — its border-b is the first separator */}
+                                <div className="pb-3 border-b border-gray-100">
+                                    <p className="text-[12px] text-[#7B818C] font-medium leading-[20px]">Buying options</p>
+                                </div>
+
                                 {variants.map((variant, idx) => {
                                     const attrs = variant.attributes ?? {};
                                     const variantId = attrs.shopifyVariantId;
-                                    const qty = variantId ? (quantities[variantId] ?? 0) : 0;
                                     const price = attrs.price;
                                     const compareAtPrice = attrs.compareAtPrice;
                                     const discount = getDiscountPercent(price, compareAtPrice);
@@ -70,64 +123,46 @@ export default function VariantSheet({ isOpen, onClose, product, quantities, onI
                                     return (
                                         <div
                                             key={variantId ?? idx}
-                                            className="flex items-center justify-between gap-3 py-3 border-b border-gray-100 last:border-b-0"
+                                            className="flex items-center justify-between gap-3 py-3.5 border-b border-gray-100 last:border-b-0"
                                         >
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-[13px] font-medium text-[#292E2C]">{attrs.title}</p>
-                                                {attrs.measurementValue != null && attrs.measurementUnit && (
-                                                    <p className="text-[11px] text-[#9DA6B2]">
-                                                        {attrs.measurementValue}
-                                                        {attrs.measurementUnit}
+                                            {/* Left: name + badge + price */}
+                                            <div className="flex justify-between items-center w-full">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <p className="text-[16px] font-medium leading-[24px] text-[#292E2C]">
+                                                        {attrs.title}
                                                     </p>
-                                                )}
-                                                <div className="flex items-baseline gap-1 mt-0.5 flex-wrap">
+                                                    {discount != null && (
+                                                        <span className="text-[12px] font-semibold text-[#D13F44] bg-[#FFF5F5] px-2 py-0.5 rounded-[8px]">
+                                                            -{discount}% OFF
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-baseline gap-1.5 mt-1 flex-wrap leading-[20px]">
                                                     {formatPrice(price) && (
                                                         <p className="text-[10px] text-[#292E2C]">
-                                                            ₹<span className="text-[15px] font-semibold">{formatPrice(price)}</span>
+                                                            ₹<span className="text-[18px] font-medium leading-[100%]">{formatPrice(price)}</span>
                                                         </p>
                                                     )}
                                                     {compareAtPrice && compareAtPrice > price && (
-                                                        <>
-                                                            <span className="text-[11px] text-[#9DA6B2] line-through">
-                                                                ₹{formatPrice(compareAtPrice)}
-                                                            </span>
-                                                            {discount != null && (
-                                                                <span className="text-[11px] font-semibold text-[#D13F44]">-{discount}%</span>
-                                                            )}
-                                                        </>
+                                                        <span className="text-[12px] text-[#9DA6B2] line-through">
+                                                            ₹{formatPrice(compareAtPrice)}
+                                                        </span>
                                                     )}
                                                 </div>
-                                            </div>
 
-                                            <div className="flex-shrink-0">
-                                                {qty === 0 ? (
+                                                {/* Right: ADD button */}
+                                                <div className="flex-shrink-0">
                                                     <button
                                                         type="button"
                                                         onClick={() => variantId && onIncrease(variantId)}
-                                                        className="px-4 py-1.5 rounded-xl border border-orange-200 bg-orange-50 text-xs font-semibold text-orange-600"
+                                                        className="px-5 py-2 rounded-xl border-[#F0C3B4] border bg-[#FCF1ED] text-[13px] font-bold text-[#C4512B]"
                                                     >
                                                         ADD
                                                     </button>
-                                                ) : (
-                                                    <div className="flex items-center gap-3 px-3 py-1.5 rounded-xl border border-orange-200 bg-orange-50 text-xs font-semibold text-orange-600">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => variantId && onDecrease(variantId)}
-                                                            className="w-5 h-5 rounded-full border border-orange-300 flex items-center justify-center"
-                                                        >
-                                                            −
-                                                        </button>
-                                                        <span>{qty}</span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => variantId && onIncrease(variantId)}
-                                                            className="w-5 h-5 rounded-full border border-orange-300 flex items-center justify-center"
-                                                        >
-                                                            +
-                                                        </button>
-                                                    </div>
-                                                )}
+                                                </div>
                                             </div>
+
+
                                         </div>
                                     );
                                 })}
