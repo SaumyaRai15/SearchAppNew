@@ -81,7 +81,6 @@ export default function SearchResults({ query }) {
     const router = useRouter();
     const searchParams = useSearchParams();
 
-
     // Initialise all filter/sort state from URL so a direct link loads correctly
     const [sortBy, setSortBy] = useState(() => searchParams.get("sort") || "");
     const [selectedCategories, setSelectedCategories] = useState(() => {
@@ -101,8 +100,7 @@ export default function SearchResults({ query }) {
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [variantSheetProduct, setVariantSheetProduct] = useState(null);
 
-    console.log("quantities: ", quantities)
-
+    console.log("quantities: ", quantities);
 
     // Support both string and suggestion object
     const searchText = typeof query === "string" ? query.trim() : query?.q?.trim() || "";
@@ -363,14 +361,14 @@ export default function SearchResults({ query }) {
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                        {hasVariants ? (
+                                    <div className="flex flex-col items-center flex-shrink-0">
+                                        {hasVariants && (
                                             <>
                                                 {totalVariantQty === 0 ? (
                                                     <button
                                                         type="button"
                                                         onClick={() => setVariantSheetProduct(product)}
-                                                        className="px-4 py-1.5 rounded-xl border border-orange-200 bg-orange-50 text-xs font-semibold text-orange-600"
+                                                        className="w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#F0C3B4] border bg-[#FCF1ED] text-[14px] leading-[20px] font-bold text-[#C4512B]"
                                                     >
                                                         ADD
                                                     </button>
@@ -378,43 +376,13 @@ export default function SearchResults({ query }) {
                                                     <button
                                                         type="button"
                                                         onClick={() => setVariantSheetProduct(product)}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-orange-200 bg-orange-50 text-xs font-semibold text-orange-600"
+                                                        className="relative flex items-center justify-around w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#F0C3B4] border text-[14px] leading-[20px] font-bold text-[#C4512B]"
                                                     >
                                                         <span>{totalVariantQty}</span>
-                                                        <span className="text-[10px]">▾</span>
+                                                        <Image src="/svg/chevron-down-orange.svg" width={7} height={4} alt="" aria-hidden className="absolute right-[12px]" />
                                                     </button>
                                                 )}
-                                                <p className="text-[10px] text-[#7B818C]">{product.variants.length} Options</p>
-                                            </>
-                                        ) : (
-                                            <>
-                                                {quantity === 0 ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleIncrease(product.id)}
-                                                        className="px-4 py-1.5 rounded-xl border border-orange-200 bg-orange-50 text-xs font-semibold text-orange-600"
-                                                    >
-                                                        ADD
-                                                    </button>
-                                                ) : (
-                                                    <div className="flex items-center gap-3 px-3 py-1.5 rounded-xl border border-orange-200 bg-orange-50 text-xs font-semibold text-orange-600">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleDecrease(product.id)}
-                                                            className="w-5 h-5 rounded-full border border-orange-300 flex items-center justify-center"
-                                                        >
-                                                            −
-                                                        </button>
-                                                        <span>{quantity}</span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleIncrease(product.id)}
-                                                            className="w-5 h-5 rounded-full border border-orange-300 flex items-center justify-center"
-                                                        >
-                                                            +
-                                                        </button>
-                                                    </div>
-                                                )}
+                                                <p className="text-[10px] leading-[12px] rounded-br-[8p] px-[8px] pt-[2px] pb-[4px] rounded-bl-[8px] font-medium bg-[#FCF8F7] text-[#C4512B]">{product.variants.length} {product.variants.length > 1 ? "Options" : "Option"} </p>
                                             </>
                                         )}
                                     </div>

@@ -150,15 +150,35 @@ export default function VariantSheet({ isOpen, onClose, product, quantities, onI
                                                     )}
                                                 </div>
 
-                                                {/* Right: ADD button */}
+                                                {/* Right: ADD / stepper */}
                                                 <div className="flex-shrink-0">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => variantId && onIncrease(variantId)}
-                                                        className="px-5 py-2 rounded-xl border-[#F0C3B4] border bg-[#FCF1ED] text-[13px] font-bold text-[#C4512B]"
-                                                    >
-                                                        ADD
-                                                    </button>
+                                                    {(quantities[variantId] ?? 0) === 0 ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => variantId && onIncrease(variantId)}
+                                                            className="w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#F0C3B4] border bg-[#FCF1ED] text-[14px] leading-[20px] font-bold text-[#C4512B]"
+                                                        >
+                                                            ADD
+                                                        </button>
+                                                    ) : (
+                                                        <div className="w-[72px] h-[40px] flex items-center justify-between px-[5px] py-[4px] rounded-[8px] border border-[#F0C3B4] text-[14px] font-bold text-[#C4512B]">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => variantId && onDecrease(variantId)}
+                                                                className="w-[16px] h-[16px] flex items-center justify-center"
+                                                            >
+                                                                −
+                                                            </button>
+                                                            <span>{quantities[variantId]}</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => variantId && onIncrease(variantId)}
+                                                                className="w-[16px] h-[16px] flex items-center justify-center"
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 
