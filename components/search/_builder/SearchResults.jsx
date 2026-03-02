@@ -11,6 +11,7 @@ import SortAndFilterBar from "./SortAndFilterBar";
 
 const SortSheet = dynamic(() => import("./SortSheet"));
 const FilterSheet = dynamic(() => import("./FilterSheet"));
+const VariantSheet = dynamic(() => import("./VariantSheet"));
 
 const SORT_OPTIONS = [
     { id: "PRICE_LOW_HIGH", label: "Price - Low to High" },
@@ -80,6 +81,7 @@ export default function SearchResults({ query }) {
     const router = useRouter();
     const searchParams = useSearchParams();
 
+
     // Initialise all filter/sort state from URL so a direct link loads correctly
     const [sortBy, setSortBy] = useState(() => searchParams.get("sort") || "");
     const [selectedCategories, setSelectedCategories] = useState(() => {
@@ -97,6 +99,10 @@ export default function SearchResults({ query }) {
     const [quantities, setQuantities] = useState({});
     const [isSortOpen, setIsSortOpen] = useState(false);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [variantSheetProduct, setVariantSheetProduct] = useState(null);
+
+    console.log("quantities: ", quantities)
+
 
     // Support both string and suggestion object
     const searchText = typeof query === "string" ? query.trim() : query?.q?.trim() || "";
@@ -324,7 +330,14 @@ export default function SearchResults({ query }) {
                 )}
 
                 {filteredProducts.map((product) => {
+                    const hasVariants = product.variants?.length > 0;
                     const quantity = quantities[product.id] ?? 0;
+                    const totalVariantQty = hasVariants
+                        ? product.variants.reduce((sum, v) => {
+                            const vid = v.attributes?.shopifyVariantId;
+                            return sum + (vid ? (quantities[vid] ?? 0) : 0);
+                        }, 0)
+                        : 0;
 
                     return (
                         <div key={product.id} className="flex gap-3 bg-white py-3 border-b border-gray-100">
@@ -351,32 +364,58 @@ export default function SearchResults({ query }) {
                                     </div>
 
                                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                        {quantity === 0 ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleIncrease(product.id)}
-                                                className="px-4 py-1.5 rounded-xl border border-orange-200 bg-orange-50 text-xs font-semibold text-orange-600"
-                                            >
-                                                ADD
-                                            </button>
+                                        {hasVariants ? (
+                                            <>
+                                                {totalVariantQty === 0 ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setVariantSheetProduct(product)}
+                                                        className="px-4 py-1.5 rounded-xl border border-orange-200 bg-orange-50 text-xs font-semibold text-orange-600"
+                                                    >
+                                                        ADD
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setVariantSheetProduct(product)}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-orange-200 bg-orange-50 text-xs font-semibold text-orange-600"
+                                                    >
+                                                        <span>{totalVariantQty}</span>
+                                                        <span className="text-[10px]">▾</span>
+                                                    </button>
+                                                )}
+                                                <p className="text-[10px] text-[#7B818C]">{product.variants.length} Options</p>
+                                            </>
                                         ) : (
-                                            <div className="flex items-center gap-3 px-3 py-1.5 rounded-xl border border-orange-200 bg-orange-50 text-xs font-semibold text-orange-600">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDecrease(product.id)}
-                                                    className="w-5 h-5 rounded-full border border-orange-300 flex items-center justify-center"
-                                                >
-                                                    −
-                                                </button>
-                                                <span>{quantity}</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleIncrease(product.id)}
-                                                    className="w-5 h-5 rounded-full border border-orange-300 flex items-center justify-center"
-                                                >
-                                                    +
-                                                </button>
-                                            </div>
+                                            <>
+                                                {quantity === 0 ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleIncrease(product.id)}
+                                                        className="px-4 py-1.5 rounded-xl border border-orange-200 bg-orange-50 text-xs font-semibold text-orange-600"
+                                                    >
+                                                        ADD
+                                                    </button>
+                                                ) : (
+                                                    <div className="flex items-center gap-3 px-3 py-1.5 rounded-xl border border-orange-200 bg-orange-50 text-xs font-semibold text-orange-600">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDecrease(product.id)}
+                                                            className="w-5 h-5 rounded-full border border-orange-300 flex items-center justify-center"
+                                                        >
+                                                            −
+                                                        </button>
+                                                        <span>{quantity}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleIncrease(product.id)}
+                                                            className="w-5 h-5 rounded-full border border-orange-300 flex items-center justify-center"
+                                                        >
+                                                            +
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                 </div>
@@ -443,6 +482,16 @@ export default function SearchResults({ query }) {
                     setSelectedCollections(collections);
                     setPriceRange(pr);
                 }}
+            />
+
+            {/* Variant picker bottom sheet */}
+            <VariantSheet
+                isOpen={!!variantSheetProduct}
+                onClose={() => setVariantSheetProduct(null)}
+                product={variantSheetProduct}
+                quantities={quantities}
+                onIncrease={handleIncrease}
+                onDecrease={handleDecrease}
             />
         </div>
     );
