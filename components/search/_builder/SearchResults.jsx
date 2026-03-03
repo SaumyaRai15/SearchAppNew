@@ -273,7 +273,7 @@ export default function SearchResults({ query }) {
                                     <button
                                         type="button"
                                         onClick={() => setSortBy("")}
-                                        className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-orange-200 bg-orange-50 text-xs font-medium text-orange-600"
+                                        className="h-[32px] inline-flex items-center gap-[8px] px-[8px] py-[4px] rounded-[8px] border border-[#F0C3B4]  text-xs text-[#C4512B]"
                                     >
                                         {SORT_OPTIONS.find((opt) => opt.id === sortBy)?.label ?? "Sort"}
                                         <span aria-hidden>×</span>
@@ -285,7 +285,7 @@ export default function SearchResults({ query }) {
                                         key={category}
                                         type="button"
                                         onClick={() => toggleCategory(category)}
-                                        className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-orange-200 bg-orange-50 text-xs font-medium text-orange-600"
+                                        className="h-[32px] inline-flex items-center gap-[8px] px-[8px] py-[4px] rounded-[8px] border border-[#F0C3B4]  text-xs text-[#C4512B]"
                                     >
                                         {formatCategoryLabel(category)}
                                         <span aria-hidden>×</span>
@@ -297,7 +297,7 @@ export default function SearchResults({ query }) {
                                         key={collection}
                                         type="button"
                                         onClick={() => setSelectedCollections((prev) => prev.filter((c) => c !== collection))}
-                                        className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-orange-200 bg-orange-50 text-xs font-medium text-orange-600"
+                                        className="h-[32px] inline-flex items-center gap-[8px] px-[8px] py-[4px] rounded-[8px] border border-[#F0C3B4]  text-xs text-[#C4512B]"
                                     >
                                         {formatCategoryLabel(collection)}
                                         <span aria-hidden>×</span>
@@ -308,7 +308,7 @@ export default function SearchResults({ query }) {
                                     <button
                                         type="button"
                                         onClick={() => setPriceRange({ min: "", max: "" })}
-                                        className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-orange-200 bg-orange-50 text-xs font-medium text-orange-600"
+                                        className="h-[32px] inline-flex items-center gap-[8px] px-[8px] py-[4px] rounded-[8px] border border-[#F0C3B4]  text-xs text-[#C4512B]"
                                     >
                                         {priceRangeLabel}
                                         <span aria-hidden>×</span>
@@ -319,7 +319,7 @@ export default function SearchResults({ query }) {
                             <button
                                 type="button"
                                 onClick={clearFilters}
-                                className="text-xs font-medium text-orange-600 flex-shrink-0"
+                                className="text-[12px] leading-[16px] font-semibold text-[#C4512B] flex-shrink-0"
                             >
                                 Clear all
                             </button>
@@ -345,14 +345,14 @@ export default function SearchResults({ query }) {
 
                             <div className="flex-1 flex flex-col min-w-0">
                                 <div className="flex justify-between gap-3">
-                                    <div className="min-w-0">
+                                    <div className="flex flex-col gap-[2px]">
                                         <div className="text-[14px] text-[#292E2C] leading-[20px]">
                                             {highlightMatch(product.title, searchText)}
                                         </div>
 
-                                        <div className="text-[12px] text-[#7B818C] mb-0.5 leading-[16px]">{product.subtitle}</div>
+                                        <div className="text-[12px] text-[#7B818C] leading-[16px]">{product.subtitle}</div>
 
-                                        <div className="flex gap-x-2">
+                                        <div className="flex gap-x-2 mt-[6px]">
                                             <p className="text-[12px] leading-[16px] text-[#676B73] bg-[#F5F7FA] px-[4px]">30g</p>
                                             <div className="flex gap-x-2 bg-[#F5F7FA] px-[4px] rounded-[2px] w-fit">
                                                 <StarRating />
@@ -361,7 +361,9 @@ export default function SearchResults({ query }) {
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-col items-center flex-shrink-0">
+                                    <div
+                                        className={`flex flex-col w-[72px] h-[58px] rounded-[8px] items-center flex-shrink-0 bg-[#FCF8F7]`}
+                                    >
                                         {hasVariants && (
                                             <>
                                                 {totalVariantQty === 0 ? (
@@ -376,13 +378,22 @@ export default function SearchResults({ query }) {
                                                     <button
                                                         type="button"
                                                         onClick={() => setVariantSheetProduct(product)}
-                                                        className="relative flex items-center justify-around w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#F0C3B4] border text-[14px] leading-[20px] font-bold text-[#C4512B]"
+                                                        className="flex items-center justify-around w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#C4512B] border text-[14px] leading-[20px] font-bold bg-white text-[#C4512B]"
                                                     >
                                                         <span>{totalVariantQty}</span>
-                                                        <Image src="/svg/chevron-down-orange.svg" width={7} height={4} alt="" aria-hidden className="absolute right-[12px]" />
+                                                        <Image
+                                                            src="/svg/chevron-down-orange.svg"
+                                                            width={7}
+                                                            height={4}
+                                                            alt=""
+                                                            aria-hidden
+                                                            className="absolute right-[12px]"
+                                                        />
                                                     </button>
                                                 )}
-                                                <p className="text-[10px] leading-[12px] rounded-br-[8p] px-[8px] pt-[2px] pb-[4px] rounded-bl-[8px] font-medium bg-[#FCF8F7] text-[#C4512B]">{product.variants.length} {product.variants.length > 1 ? "Options" : "Option"} </p>
+                                                <p className="text-[10px]  leading-[12px] rounded-br-[8p] px-[8px] pt-[2px] pb-[4px] rounded-bl-[8px] font-medium bg-[#FCF8F7] text-[#C4512B]">
+                                                    {product.variants.length} {product.variants.length > 1 ? "Options" : "Option"}{" "}
+                                                </p>
                                             </>
                                         )}
                                     </div>
@@ -397,11 +408,14 @@ export default function SearchResults({ query }) {
 
                                     {product.compare_at_price && product.compare_at_price > product.price && (
                                         <>
-                                            <span className="text-[12px] text-[#9DA6B2] line-through">
-                                                {formatPrice(product.compare_at_price)}
-                                            </span>
+                                            <p className="text-[10px] text-[#9DA6B2]">
+                                                ₹
+                                                <span className="text-[12px] leading-[10px]  line-through">
+                                                    {formatPrice(product.compare_at_price)}
+                                                </span>
+                                            </p>
                                             {getDiscountPercent(product.price, product.compare_at_price) != null && (
-                                                <span className="text-xs font-semibold text-[#D13F44]">
+                                                <span className="text-[12px] leading-[20px] font-medium text-[#D13F44]">
                                                     -{getDiscountPercent(product.price, product.compare_at_price)}%
                                                 </span>
                                             )}

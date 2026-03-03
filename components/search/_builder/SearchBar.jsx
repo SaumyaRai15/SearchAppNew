@@ -12,7 +12,7 @@ export default function SearchBar({ searchValue, onChange, onClear, onSubmit, on
 
     return (
         <div
-            className={`bg-white px-4 py-3 mb-5 rounded-[12px] border ${searchValue ? "border-[#303133]" : "border-transparent"
+            className={`bg-white px-4 py-3 mb-5 rounded-[12px] border ${searchValue && !isResultsOpen ? "border-[#303133]" : "border-[#F5F7FA]"
                 }`}
         >
             <div className="flex items-center gap-3">
