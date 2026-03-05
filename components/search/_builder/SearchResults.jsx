@@ -2,16 +2,37 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useSearchParams, useRouter } from "next/navigation";
 import { searchProducts } from "@/lib/search";
 import { formatCategoryLabel } from "../../../constants/categoryUtils";
 import SortAndFilterBar from "./SortAndFilterBar";
+import { SearchResultsSkeleton } from "../../Loaders/SearchResultsSkeleton";
 
 const SortSheet = dynamic(() => import("./SortSheet"));
 const FilterSheet = dynamic(() => import("./FilterSheet"));
 const VariantSheet = dynamic(() => import("./VariantSheet"));
+
+const MAX_RECENTLY_VIEWED = 10;
+
+function addToRecentlyViewed(product) {
+    if (typeof window === "undefined") return;
+    const stored = JSON.parse(localStorage.getItem("recently_viewed") || "[]");
+    const filtered = stored.filter((p) => p.id !== product.id);
+    const entry = {
+        id: product.id,
+        title: product.title,
+        subtitle: product.subtitle,
+        featured_image: product.featured_image,
+        url: product.url,
+        price: product.price,
+        compare_at_price: product.compare_at_price,
+    };
+    const updated = [entry, ...filtered].slice(0, MAX_RECENTLY_VIEWED);
+    localStorage.setItem("recently_viewed", JSON.stringify(updated));
+}
 
 const SORT_OPTIONS = [
     { id: "PRICE_LOW_HIGH", label: "Price - Low to High" },
@@ -40,20 +61,6 @@ const StarRating = () => (
     </div>
 );
 
-const SkeletonCard = () => (
-    <div className="flex gap-3 bg-white py-3 border-b border-gray-100 animate-pulse">
-        <div className="w-[72px] h-[111px] rounded-lg bg-gray-200 flex-shrink-0" />
-        <div className="flex-1 flex flex-col gap-2 pt-1">
-            <div className="h-[14px] bg-gray-200 rounded w-3/4" />
-            <div className="h-3 bg-gray-200 rounded w-1/2" />
-            <div className="h-3 bg-gray-200 rounded w-1/4" />
-            <div className="mt-4 flex justify-end">
-                <div className="h-7 bg-gray-200 rounded-xl w-16" />
-            </div>
-            <div className="mt-auto h-4 bg-gray-200 rounded w-1/3" />
-        </div>
-    </div>
-);
 
 const highlightMatch = (text, query) => {
     if (!text || !query) return <span>{text}</span>;
@@ -99,8 +106,6 @@ export default function SearchResults({ query }) {
     const [isSortOpen, setIsSortOpen] = useState(false);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [variantSheetProduct, setVariantSheetProduct] = useState(null);
-
-    console.log("quantities: ", quantities);
 
     // Support both string and suggestion object
     const searchText = typeof query === "string" ? query.trim() : query?.q?.trim() || "";
@@ -255,7 +260,7 @@ export default function SearchResults({ query }) {
             <div className="relative min-h-screen bg-white pb-24">
                 <div className="mt-2 space-y-3">
                     {Array.from({ length: 6 }).map((_, i) => (
-                        <SkeletonCard key={i} />
+                        <SearchResultsSkeleton key={i} />
                     ))}
                 </div>
             </div>
@@ -329,7 +334,7 @@ export default function SearchResults({ query }) {
 
                 {filteredProducts.map((product) => {
                     const hasVariants = product.variants?.length > 0;
-                    const quantity = quantities[product.id] ?? 0;
+                    // const quantity = quantities[product.id] ?? 0;
                     const totalVariantQty = hasVariants
                         ? product.variants.reduce((sum, v) => {
                             const vid = v.attributes?.shopifyVariantId;
@@ -340,7 +345,16 @@ export default function SearchResults({ query }) {
                     return (
                         <div key={product.id} className="flex gap-3 bg-white py-3 border-b border-gray-100">
                             <div className="relative w-[72px] h-[111px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                                {product.featured_image && <Image src={product.featured_image} alt={product.title} fill />}
+                                {product.featured_image &&
+                                    <Link
+                                        href={`https://nathabit.in/products/${product.url}`}
+                                        prefetch={false}
+                                        target="_blank"
+                                        onClick={() => addToRecentlyViewed(product)}
+                                    >
+                                        <Image src={product.featured_image} alt={product.title} fill />
+                                    </Link>
+                                }
                             </div>
 
                             <div className="flex-1 flex flex-col min-w-0">

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { searchProducts, fetchSuggestions } from "@/lib/search";
+import { SearchSuggestionSkeleton } from "@/components/Loaders/SearchSuggestionSkeleton";
 
 export default function SearchSuggestionAndProducts({
     searchValue,
@@ -12,16 +13,26 @@ export default function SearchSuggestionAndProducts({
 
     const [suggestions, setSuggestions] = useState([]);
     const [products, setProducts] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         if (!query) {
             setSuggestions([]);
             setProducts([]);
+            setIsLoading(false);
             return;
         }
 
-        fetchSuggestions(query).then(setSuggestions);
-        searchProducts(query).then((res) => setProducts(res.products.slice(0, 8)));
+        setIsLoading(true);
+
+        Promise.all([
+            fetchSuggestions(query),
+            searchProducts(query),
+        ]).then(([suggs, res]) => {
+            setSuggestions(suggs);
+            setProducts(res.products.slice(0, 8));
+            setIsLoading(false);
+        });
     }, [query]);
 
     const highlightMatch = (text) => {
@@ -44,6 +55,17 @@ export default function SearchSuggestionAndProducts({
             </span>
         );
     };
+
+    if (isLoading) return <SearchSuggestionSkeleton />;
+
+    if (suggestions.length === 0 && products.length === 0 && query) {
+        return (
+            <div className="mt-2 bg-white py-16 flex flex-col items-center gap-1">
+                <p className="text-[14px] text-[#7B818C]">0 Matching Results for</p>
+                <p className="text-[16px] text-[#292E2C] font-semibold">&ldquo;{query}&rdquo;</p>
+            </div>
+        );
+    }
 
     return (
         <div className="mt-2 bg-white">

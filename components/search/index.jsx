@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { products } from "../../constants/products";
 import SearchBar from "./_builder/SearchBar";
 import SearchHomePage from "./_builder/SearchHomePage";
 import SearchSuggestionAndProducts from "./_builder/SearchSuggestionAndProducts";
@@ -12,20 +11,45 @@ export default function SearchComponent() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
-    const recentSearches = [
-        "Moisturiser",
-        "Shampoo",
-        "Cold processed soap",
-        "Aloe vera face pack",
-    ];
-
-    const recentProducts = products.slice(0, 3);
+    const [recentSearches, setRecentSearches] = useState(null);
+    const [recentProducts, setRecentProducts] = useState(null);
 
     const initialQ = searchParams.get("q") || "";
     const initialFilterBy = searchParams.get("filter_by") || null;
 
     const [searchValue, setSearchValue] = useState(initialQ);
     const [isResultsOpen, setIsResultsOpen] = useState(!!initialQ);
+
+    const refreshHomePageData = () => {
+        try {
+            const searches = JSON.parse(localStorage.getItem("recent_searches") || "[]");
+            setRecentSearches(searches);
+        } catch {
+            setRecentSearches([]);
+        }
+        try {
+            const products = JSON.parse(localStorage.getItem("recently_viewed") || "[]");
+            setRecentProducts(products);
+        } catch {
+            setRecentProducts([]);
+        }
+    };
+
+    useEffect(() => {
+        if (!searchValue || !isResultsOpen) {
+            refreshHomePageData();
+        }
+    }, [searchValue, isResultsOpen]);
+
+    const addToRecentSearches = (label) => {
+        try {
+            const stored = JSON.parse(localStorage.getItem("recent_searches") || "[]");
+            const filtered = stored.filter((s) => s !== label);
+            const updated = [label, ...filtered].slice(0, 8);
+            localStorage.setItem("recent_searches", JSON.stringify(updated));
+        } catch {}
+    };
+
     const [resultsQuery, setResultsQuery] = useState(
         initialQ ? { q: initialQ, filter_by: initialFilterBy || undefined } : null,
     );
@@ -34,6 +58,7 @@ export default function SearchComponent() {
         const query = searchValue.trim();
         if (!query) return;
 
+        addToRecentSearches(query);
         setResultsQuery({ q: query });
         setIsResultsOpen(true);
         // Clear all filter/sort params — SearchResults initialises fresh from the new empty URL
@@ -41,6 +66,7 @@ export default function SearchComponent() {
     };
 
     const handleSuggestionClick = (suggestion) => {
+        addToRecentSearches(suggestion.label);
         setSearchValue(suggestion.label);
         setResultsQuery({ q: suggestion.query, filter_by: suggestion.filter_by });
         setIsResultsOpen(true);
