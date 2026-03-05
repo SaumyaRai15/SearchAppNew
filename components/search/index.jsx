@@ -47,7 +47,7 @@ export default function SearchComponent() {
             const filtered = stored.filter((s) => s !== label);
             const updated = [label, ...filtered].slice(0, 8);
             localStorage.setItem("recent_searches", JSON.stringify(updated));
-        } catch {}
+        } catch { }
     };
 
     const [resultsQuery, setResultsQuery] = useState(
@@ -77,6 +77,25 @@ export default function SearchComponent() {
         router.replace(`?${params.toString()}`, { scroll: false });
     };
 
+    const handleBack = () => {
+        if (isResultsOpen) {
+            // Step back from results to suggestions for the same query
+            setIsResultsOpen(false);
+            return;
+        }
+
+        if (searchValue) {
+            // Step back from suggestions to home
+            setSearchValue("");
+            setIsResultsOpen(false);
+            router.replace("?", { scroll: false });
+            return;
+        }
+
+        // Step back from search home to app home page
+        router.push("/");
+    };
+
     return (
         <div className={`min-h-screen p-5 font-sans ${searchValue ? "bg-white" : "bg-gray-100"}`}>
             <SearchBar
@@ -88,7 +107,7 @@ export default function SearchComponent() {
                     router.replace("?", { scroll: false });
                 }}
                 onSubmit={handleSubmitSearch}
-                onBack={isResultsOpen ? () => setIsResultsOpen(false) : undefined}
+                onBack={handleBack}
                 isResultsOpen={isResultsOpen}
             />
 
