@@ -41,7 +41,7 @@ const PRODUCTS_QUERY = `
           subtitle
           url
           updatedAt
-
+          shopifyProductId
           featuredImage {
             data {
               attributes {
@@ -137,7 +137,7 @@ function transformProduct(product) {
 
   return {
     id: product.id,
-    product_id: product.id,
+    product_id: product.attributes.shopifyProductId,
     title: attrs.title,
     subtitle: attrs.subtitle || "",
     url: attrs.url,

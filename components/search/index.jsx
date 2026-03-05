@@ -7,7 +7,7 @@ import SearchHomePage from "./_builder/SearchHomePage";
 import SearchSuggestionAndProducts from "./_builder/SearchSuggestionAndProducts";
 import SearchResults from "./_builder/SearchResults";
 
-export default function SearchComponent() {
+export default function SearchIndex() {
     const router = useRouter();
     const searchParams = useSearchParams();
 

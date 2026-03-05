@@ -367,7 +367,7 @@ export default function SearchResults({ query }) {
                                         <div className="text-[12px] text-[#7B818C] leading-[16px]">{product.subtitle}</div>
 
                                         <div className="flex gap-x-2 mt-[6px]">
-                                            <p className="text-[12px] leading-[16px] text-[#676B73] bg-[#F5F7FA] px-[4px]">30g</p>
+                                            <p className="text-[12px] leading-[16px] text-[#676B73] bg-[#F5F7FA] px-[4px]">{product.variants[0].attributes.measurementValue}{product.variants[0].attributes.measurementUnit}</p>
                                             <div className="flex gap-x-2 bg-[#F5F7FA] px-[4px] rounded-[2px] w-fit">
                                                 <StarRating />
                                                 <p className="text-[12px] leading-[16px] text-[#676B73]">(171)</p>

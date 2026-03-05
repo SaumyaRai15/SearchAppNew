@@ -84,13 +84,9 @@ export default function VariantSheet({ isOpen, onClose, product, quantities, onI
                                     )}
                                 </div>
                                 <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-                                    <p className="text-[16px] font-medium text-[#303133] leading-[24px]">
-                                        {displayProduct.title}
-                                    </p>
+                                    <p className="text-[16px] font-medium text-[#303133] leading-[24px]">{displayProduct.title}</p>
                                     {displayProduct.subtitle && (
-                                        <p className="text-[12px] text-[#7B818C] leading-[16px]">
-                                            {displayProduct.subtitle}
-                                        </p>
+                                        <p className="text-[12px] text-[#7B818C] leading-[16px]">{displayProduct.subtitle}</p>
                                     )}
                                     <div className="flex gap-x-2 mt-0.5">
                                         {firstMeasurement && (
@@ -181,8 +177,6 @@ export default function VariantSheet({ isOpen, onClose, product, quantities, onI
                                                     )}
                                                 </div>
                                             </div>
-
-
                                         </div>
                                     );
                                 })}
