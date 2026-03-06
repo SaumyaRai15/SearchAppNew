@@ -3,21 +3,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useSearchParams, useRouter } from "next/navigation";
 import { searchProducts } from "@/lib/search";
+import { useCartStore } from "@/store/useCartStore";
 import { formatCategoryLabel } from "../../../constants/categoryUtils";
 import SortAndFilterBar from "./SortAndFilterBar";
 import { SearchResultsSkeleton } from "../../Loaders/SearchResultsSkeleton";
+import SortSheet from "./SortSheet";
+import FilterSheet from "./FilterSheet";
+import VariantSheet from "./VariantSheet";
 
-const SortSheet = dynamic(() => import("./SortSheet"));
-const FilterSheet = dynamic(() => import("./FilterSheet"));
-const VariantSheet = dynamic(() => import("./VariantSheet"));
+const MAX_RECENTLY_VIEWED = 5;
 
-const MAX_RECENTLY_VIEWED = 10;
-
-function addToRecentlyViewed(product) {
+const addToRecentlyViewed = (product) => {
     if (typeof window === "undefined") return;
     const stored = JSON.parse(localStorage.getItem("recently_viewed") || "[]");
     const filtered = stored.filter((p) => p.id !== product.id);
@@ -32,7 +31,7 @@ function addToRecentlyViewed(product) {
     };
     const updated = [entry, ...filtered].slice(0, MAX_RECENTLY_VIEWED);
     localStorage.setItem("recently_viewed", JSON.stringify(updated));
-}
+};
 
 const SORT_OPTIONS = [
     { id: "PRICE_LOW_HIGH", label: "Price - Low to High" },
@@ -47,20 +46,32 @@ const getDiscountPercent = (price, compareAtPrice) => {
     return Math.round((1 - price / compareAtPrice) * 100);
 };
 
-const StarRating = () => (
-    <div className="flex items-center gap-0.5">
-        {[1, 2, 3, 4, 5].map((i) => (
-            <span key={i}>
-                {i <= 4 ? (
-                    <Image src="/svg/star-yellow.svg" width={11} height={11} alt="" aria-hidden />
-                ) : (
-                    <Image src="/svg/star-white.svg" width={12} height={12} alt="" aria-hidden />
-                )}
-            </span>
-        ))}
-    </div>
-);
+const getDisplayRating = (rating) => {
+    if (rating == null) return 5;
 
+    const numericRating = Number(rating);
+    if (Number.isNaN(numericRating)) return 5;
+    return Math.min(5, Math.max(0, numericRating));
+};
+
+const StarRating = ({ rating }) => {
+    const displayRating = getDisplayRating(rating);
+    const filledStars = Math.round(displayRating);
+
+    return (
+        <div className="flex items-center gap-0.5">
+            {[1, 2, 3, 4, 5].map((i) => (
+                <span key={i}>
+                    {i <= filledStars ? (
+                        <Image src="/svg/star-yellow.svg" width={11} height={11} alt="" aria-hidden />
+                    ) : (
+                        <Image src="/svg/star-white.svg" width={12} height={12} alt="" aria-hidden />
+                    )}
+                </span>
+            ))}
+        </div>
+    );
+};
 
 const highlightMatch = (text, query) => {
     if (!text || !query) return <span>{text}</span>;
@@ -84,7 +95,7 @@ const highlightMatch = (text, query) => {
     );
 };
 
-export default function SearchResults({ query }) {
+const SearchResults = ({ query }) => {
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -102,10 +113,17 @@ export default function SearchResults({ query }) {
         min: searchParams.get("price_min") || "",
         max: searchParams.get("price_max") || "",
     }));
-    const [quantities, setQuantities] = useState({});
     const [isSortOpen, setIsSortOpen] = useState(false);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [variantSheetProduct, setVariantSheetProduct] = useState(null);
+    const cartItems = useCartStore((state) => state.cartItems);
+    const isLoadingByVariant = useCartStore((state) => state.isLoadingByVariant);
+    const addToCart = useCartStore((state) => state.addToCart);
+    const removeFromCart = useCartStore((state) => state.removeFromCart);
+    const quantities = useMemo(
+        () => Object.fromEntries(Object.entries(cartItems || {}).map(([variantId, item]) => [variantId, item?.qty || 0])),
+        [cartItems],
+    );
 
     // Support both string and suggestion object
     const searchText = typeof query === "string" ? query.trim() : query?.q?.trim() || "";
@@ -212,26 +230,12 @@ export default function SearchResults({ query }) {
         });
     }, [products, priceRange]);
 
-    const handleIncrease = (id) => {
-        setQuantities((prev) => ({
-            ...prev,
-            [id]: (prev[id] ?? 0) + 1,
-        }));
+    const handleIncrease = async (id) => {
+        await addToCart(id);
     };
 
-    const handleDecrease = (id) => {
-        setQuantities((prev) => {
-            const current = prev[id] ?? 0;
-            if (current <= 1) {
-                const copy = { ...prev };
-                delete copy[id];
-                return copy;
-            }
-            return {
-                ...prev,
-                [id]: current - 1,
-            };
-        });
+    const handleDecrease = async (id) => {
+        await removeFromCart(id, {}, false, false, 1);
     };
 
     const hasActiveFiltersOrSort =
@@ -334,6 +338,7 @@ export default function SearchResults({ query }) {
 
                 {filteredProducts.map((product) => {
                     const hasVariants = product.variants?.length > 0;
+                    const displayRating = getDisplayRating(product.rating);
                     // const quantity = quantities[product.id] ?? 0;
                     const totalVariantQty = hasVariants
                         ? product.variants.reduce((sum, v) => {
@@ -345,7 +350,7 @@ export default function SearchResults({ query }) {
                     return (
                         <div key={product.id} className="flex gap-3 bg-white py-3 border-b border-gray-100">
                             <div className="relative w-[72px] h-[111px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                                {product.featured_image &&
+                                {product.featured_image && (
                                     <Link
                                         href={`https://nathabit.in/products/${product.url}`}
                                         prefetch={false}
@@ -354,7 +359,7 @@ export default function SearchResults({ query }) {
                                     >
                                         <Image src={product.featured_image} alt={product.title} fill />
                                     </Link>
-                                }
+                                )}
                             </div>
 
                             <div className="flex-1 flex flex-col min-w-0">
@@ -367,10 +372,15 @@ export default function SearchResults({ query }) {
                                         <div className="text-[12px] text-[#7B818C] leading-[16px]">{product.subtitle}</div>
 
                                         <div className="flex gap-x-2 mt-[6px]">
-                                            <p className="text-[12px] leading-[16px] text-[#676B73] bg-[#F5F7FA] px-[4px]">{product.variants[0].attributes.measurementValue}{product.variants[0].attributes.measurementUnit}</p>
+                                            <p className="text-[12px] leading-[16px] text-[#676B73] bg-[#F5F7FA] px-[4px]">
+                                                {product.variants[0].attributes.measurementValue &&
+                                                    product.variants[0].attributes.measurementUnit
+                                                    ? `${product.variants[0].attributes.measurementValue}${product.variants[0].attributes.measurementUnit}`
+                                                    : "1 unit"}
+                                            </p>
                                             <div className="flex gap-x-2 bg-[#F5F7FA] px-[4px] rounded-[2px] w-fit">
-                                                <StarRating />
-                                                <p className="text-[12px] leading-[16px] text-[#676B73]">(171)</p>
+                                                <StarRating rating={product.rating} />
+                                                <p className="text-[12px] leading-[16px] text-[#676B73]">({displayRating})</p>
                                             </div>
                                         </div>
                                     </div>
@@ -486,9 +496,12 @@ export default function SearchResults({ query }) {
                 onClose={() => setVariantSheetProduct(null)}
                 product={variantSheetProduct}
                 quantities={quantities}
+                isLoadingByVariant={isLoadingByVariant}
                 onIncrease={handleIncrease}
                 onDecrease={handleDecrease}
             />
         </div>
     );
-}
+};
+
+export default SearchResults;

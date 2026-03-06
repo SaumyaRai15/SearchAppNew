@@ -42,6 +42,7 @@ const PRODUCTS_QUERY = `
           url
           updatedAt
           shopifyProductId
+          rating
           featuredImage {
             data {
               attributes {
@@ -137,11 +138,12 @@ function transformProduct(product) {
 
   return {
     id: product.id,
-    product_id: product.attributes.shopifyProductId,
+    product_id: attrs.shopifyProductId,
     title: attrs.title,
     subtitle: attrs.subtitle || "",
     url: attrs.url,
     featured_image: featured,
+    rating: attrs.rating,
     collections,
     categories: [...categories],
     concerns,

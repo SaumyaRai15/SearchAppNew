@@ -41,6 +41,7 @@ async function createCollections() {
       { name: "subtitle", type: "string", optional: true },
       { name: "url", type: "string", optional: true },
       { name: "featured_image", type: "string", optional: true },
+      { name: "rating", type: "float", optional: true },
       { name: "collections", type: "string[]", facet: true, optional: true },
       { name: "categories", type: "string[]", facet: true, optional: true },
       { name: "concerns", type: "string[]", facet: true, optional: true },

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { useRef } from "react";
+import LoaderIcon from "@/components/Loaders/LoaderIcon";
 
 const formatPrice = (n) => (n != null && !Number.isNaN(n) ? `${Math.round(n)}` : null);
 
@@ -8,25 +9,46 @@ const getDiscountPercent = (price, compareAtPrice) => {
     return Math.round((1 - price / compareAtPrice) * 100);
 };
 
-const StarRating = () => (
-    <div className="flex items-center gap-0.5">
-        {[1, 2, 3, 4, 5].map((i) => (
-            <span key={i}>
-                {i <= 4 ? (
-                    <Image src="/svg/star-yellow.svg" width={11} height={11} alt="" aria-hidden />
-                ) : (
-                    <Image src="/svg/star-white.svg" width={11} height={11} alt="" aria-hidden />
-                )}
-            </span>
-        ))}
-    </div>
-);
+const getDisplayRating = (rating) => {
+    if (rating == null) return 5;
+    const numericRating = Number(rating);
+    if (Number.isNaN(numericRating)) return 5;
+    return Math.min(5, Math.max(0, numericRating));
+};
 
-export default function VariantSheet({ isOpen, onClose, product, quantities, onIncrease, onDecrease }) {
+const StarRating = ({ rating }) => {
+    const displayRating = getDisplayRating(rating);
+    const filledStars = Math.round(displayRating);
+
+    return (
+        <div className="flex items-center gap-0.5">
+            {[1, 2, 3, 4, 5].map((i) => (
+                <span key={i}>
+                    {i <= filledStars ? (
+                        <Image src="/svg/star-yellow.svg" width={11} height={11} alt="" aria-hidden />
+                    ) : (
+                        <Image src="/svg/star-white.svg" width={11} height={11} alt="" aria-hidden />
+                    )}
+                </span>
+            ))}
+        </div>
+    );
+};
+
+export default function VariantSheet({
+    isOpen,
+    onClose,
+    product,
+    quantities,
+    isLoadingByVariant = {},
+    onIncrease,
+    onDecrease,
+}) {
     const lastProductRef = useRef(null);
     if (product) lastProductRef.current = product;
     const displayProduct = isOpen ? product : lastProductRef.current;
     const variants = displayProduct?.variants ?? [];
+    const displayRating = getDisplayRating(displayProduct?.rating);
 
     const firstMeasurement = (() => {
         for (const v of variants) {
@@ -95,8 +117,8 @@ export default function VariantSheet({ isOpen, onClose, product, quantities, onI
                                             </p>
                                         )}
                                         <div className="flex gap-x-2 bg-[#F5F7FA] px-[4px] rounded-[2px] w-fit">
-                                            <StarRating />
-                                            <p className="text-[12px] leading-[16px] text-[#676B73]">(171)</p>
+                                            <StarRating rating={displayProduct?.rating} />
+                                            <p className="text-[12px] leading-[16px] text-[#676B73]">({displayRating})</p>
                                         </div>
                                     </div>
                                 </div>
@@ -115,6 +137,7 @@ export default function VariantSheet({ isOpen, onClose, product, quantities, onI
                                     const price = attrs.price;
                                     const compareAtPrice = attrs.compareAtPrice;
                                     const discount = getDiscountPercent(price, compareAtPrice);
+                                    const isLoading = variantId ? !!isLoadingByVariant[variantId] : false;
 
                                     return (
                                         <div
@@ -124,9 +147,7 @@ export default function VariantSheet({ isOpen, onClose, product, quantities, onI
                                             {/* Left: name + badge + price */}
                                             <div className="flex justify-between items-center w-full">
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                    <p className="text-[16px] font-medium leading-[24px] text-[#292E2C]">
-                                                        {attrs.title}
-                                                    </p>
+                                                    <p className="text-[16px] font-medium leading-[24px] text-[#292E2C]">{attrs.title}</p>
                                                     {discount != null && (
                                                         <span className="text-[12px] font-semibold text-[#D13F44] bg-[#FFF5F5] px-2 py-0.5 rounded-[8px]">
                                                             -{discount}% OFF
@@ -152,23 +173,36 @@ export default function VariantSheet({ isOpen, onClose, product, quantities, onI
                                                         <button
                                                             type="button"
                                                             onClick={() => variantId && onIncrease(variantId)}
+                                                            disabled={isLoading}
                                                             className="w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#F0C3B4] border bg-[#FCF1ED] text-[14px] leading-[20px] font-bold text-[#C4512B]"
                                                         >
-                                                            ADD
+                                                            {isLoading ? (
+                                                                <LoaderIcon width={18} height={18} className="animate-spin mx-auto" />
+                                                            ) : (
+                                                                "ADD"
+                                                            )}
                                                         </button>
                                                     ) : (
                                                         <div className="w-[72px] h-[40px] flex items-center justify-between px-[5px] py-[4px] rounded-[8px] border border-[#F0C3B4] text-[14px] font-bold text-[#C4512B]">
                                                             <button
                                                                 type="button"
                                                                 onClick={() => variantId && onDecrease(variantId)}
+                                                                disabled={isLoading}
                                                                 className="w-[16px] h-[16px] flex items-center justify-center"
                                                             >
                                                                 −
                                                             </button>
-                                                            <span>{quantities[variantId]}</span>
+                                                            <span>
+                                                                {isLoading ? (
+                                                                    <LoaderIcon width={16} height={16} className="animate-spin" />
+                                                                ) : (
+                                                                    quantities[variantId]
+                                                                )}
+                                                            </span>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => variantId && onIncrease(variantId)}
+                                                                disabled={isLoading}
                                                                 className="w-[16px] h-[16px] flex items-center justify-center"
                                                             >
                                                                 +
