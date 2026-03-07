@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
 nextjs-portal {
-    display: none !important;
-  }
+  display: none !important;
+}
+
+@font-face {
+  font-family: "Satoshi";
+  src: url("/fonts/Satoshi-Medium.woff2") format("woff2");
+  font-weight: 500;
+  /* font-style: medium; */
+  /* font-display: swap; */
+}
+
+body {
+  font-family: "Satoshi", sans-serif;
+}

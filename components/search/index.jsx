@@ -97,7 +97,7 @@ export default function SearchIndex() {
     };
 
     return (
-        <div className={`min-h-screen p-5 font-sans ${searchValue ? "bg-white" : "bg-gray-100"}`}>
+        <div className={`min-h-screen p-5 font-satoshi ${searchValue ? "bg-white" : "bg-gray-100"}`}>
             <SearchBar
                 searchValue={searchValue}
                 onChange={setSearchValue}
