@@ -3,10 +3,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { useSearchParams, useRouter } from "next/navigation";
-import { searchProducts } from "@/lib/search";
+import {
+    Configure,
+    Index,
+    InstantSearch,
+    useHits,
+    useInstantSearch,
+    useRefinementList,
+    useSearchBox,
+    useSortBy,
+} from "react-instantsearch";
+import { useSearchParams } from "next/navigation";
 import { useCartStore } from "@/store/useCartStore";
+import { getPreviewProductsCache, typesenseSearchClient, TYPESENSE_INDEXES } from "@/lib/typesenseInstantsearch";
 import { formatCategoryLabel } from "../../../constants/categoryUtils";
 import SortAndFilterBar from "./SortAndFilterBar";
 import { SearchResultsSkeleton } from "../../Loaders/SearchResultsSkeleton";
@@ -34,8 +43,16 @@ const addToRecentlyViewed = (product) => {
 };
 
 const SORT_OPTIONS = [
-    { id: "PRICE_LOW_HIGH", label: "Price - Low to High" },
-    { id: "PRICE_HIGH_LOW", label: "Price - High to low" },
+    {
+        id: "PRICE_LOW_HIGH",
+        label: "Price - Low to High",
+        indexName: TYPESENSE_INDEXES.PRODUCTS_PRICE_LOW_HIGH,
+    },
+    {
+        id: "PRICE_HIGH_LOW",
+        label: "Price - High to low",
+        indexName: TYPESENSE_INDEXES.PRODUCTS_PRICE_HIGH_LOW,
+    },
 ];
 
 const formatPrice = (n) => (n != null && !Number.isNaN(n) ? `${Math.round(n)}` : null);
@@ -73,31 +90,71 @@ const StarRating = ({ rating }) => {
     );
 };
 
-const highlightMatch = (text, query) => {
-    if (!text || !query) return <span>{text}</span>;
+const replaceSearchUrl = (search) => {
+    if (typeof window === "undefined") return;
 
-    const lowerText = text.toLowerCase();
-    const lowerQuery = query.toLowerCase();
-    const index = lowerText.indexOf(lowerQuery);
-
-    if (index === -1) return <span>{text}</span>;
-
-    const before = text.slice(0, index);
-    const match = text.slice(index, index + query.length);
-    const after = text.slice(index + query.length);
-
-    return (
-        <span>
-            {before}
-            <span className="font-semibold">{match}</span>
-            {after}
-        </span>
-    );
+    const nextUrl = search ? `${window.location.pathname}${search}` : window.location.pathname;
+    window.history.replaceState(window.history.state, "", nextUrl);
 };
 
-const SearchResults = ({ query }) => {
-    const router = useRouter();
+function QueryAndSortSync({ queryText, sortBy }) {
+    const { query, refine: refineQuery } = useSearchBox();
+    const { refine: refineSort, currentRefinement } = useSortBy({
+        items: [
+            { label: "Relevance", value: TYPESENSE_INDEXES.PRODUCTS },
+            ...SORT_OPTIONS.map((option) => ({
+                label: option.label,
+                value: option.indexName,
+            })),
+        ],
+    });
+
+    useEffect(() => {
+        if (query !== queryText) {
+            refineQuery(queryText);
+        }
+    }, [query, queryText, refineQuery]);
+
+    useEffect(() => {
+        const nextIndexName = SORT_OPTIONS.find((option) => option.id === sortBy)?.indexName ?? TYPESENSE_INDEXES.PRODUCTS;
+
+        if (currentRefinement !== nextIndexName) {
+            refineSort(nextIndexName);
+        }
+    }, [currentRefinement, refineSort, sortBy]);
+
+    return null;
+}
+
+function FacetCollector({ onUpdate }) {
+    const { items: categoryItems } = useRefinementList({
+        attribute: "categories",
+        operator: "or",
+        limit: 200,
+    });
+    const { items: collectionItems } = useRefinementList({
+        attribute: "collections",
+        operator: "or",
+        limit: 200,
+    });
+
+    useEffect(() => {
+        onUpdate({
+            categories: categoryItems.map(({ value, count }) => ({ value, count })),
+            collections: collectionItems.map(({ value, count }) => ({ value, count })),
+        });
+    }, [categoryItems, collectionItems, onUpdate]);
+
+    return null;
+}
+
+const SearchResultsContent = ({ query }) => {
+    // Support both string and suggestion object
+    const searchText = typeof query === "string" ? query.trim() : query?.q?.trim() || "";
+    const baseFilterBy = typeof query === "string" ? undefined : query?.filter_by || undefined;
     const searchParams = useSearchParams();
+    const { items: products } = useHits();
+    const { status, results } = useInstantSearch();
 
     // Initialise all filter/sort state from URL so a direct link loads correctly
     const [sortBy, setSortBy] = useState(() => searchParams.get("sort") || "");
@@ -116,6 +173,9 @@ const SearchResults = ({ query }) => {
     const [isSortOpen, setIsSortOpen] = useState(false);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [variantSheetProduct, setVariantSheetProduct] = useState(null);
+    const [facetData, setFacetData] = useState({ categories: [], collections: [] });
+    const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+    const [cachedPreviewProducts, setCachedPreviewProducts] = useState(() => getPreviewProductsCache(searchText));
     const cartItems = useCartStore((state) => state.cartItems);
     const isLoadingByVariant = useCartStore((state) => state.isLoadingByVariant);
     const addToCart = useCartStore((state) => state.addToCart);
@@ -124,10 +184,6 @@ const SearchResults = ({ query }) => {
         () => Object.fromEntries(Object.entries(cartItems || {}).map(([variantId, item]) => [variantId, item?.qty || 0])),
         [cartItems],
     );
-
-    // Support both string and suggestion object
-    const searchText = typeof query === "string" ? query.trim() : query?.q?.trim() || "";
-    const baseFilterBy = typeof query === "string" ? undefined : query?.filter_by || undefined;
 
     const combinedFilterBy = useMemo(() => {
         const filters = [];
@@ -146,30 +202,9 @@ const SearchResults = ({ query }) => {
 
         return filters.join(" && ") || undefined;
     }, [baseFilterBy, selectedCategories, selectedCollections]);
-
-    // Query 1: fires only when search term changes — used for facets only so the
-    // full list of categories/collections is always visible regardless of active filters
-    const { data: facetData } = useQuery({
-        queryKey: ["search-facets", searchText, baseFilterBy],
-        queryFn: () => searchProducts(searchText, baseFilterBy),
-        enabled: !!searchText,
-        placeholderData: keepPreviousData,
-    });
-
-    // Query 2: fires on every filter/sort change — used for products only
-    const {
-        data: searchData,
-        isFetching,
-        isPending,
-    } = useQuery({
-        queryKey: ["search", searchText, combinedFilterBy, sortBy],
-        queryFn: () => searchProducts(searchText, combinedFilterBy, sortBy),
-        enabled: !!searchText,
-        placeholderData: keepPreviousData,
-    });
-
-    const { products = [] } = searchData ?? {};
-    const { facets: { categories: facetCategories = [], collections: facetCollections = [] } = {} } = facetData ?? {};
+    const facetCategories = facetData.categories ?? [];
+    const facetCollections = facetData.collections ?? [];
+    const isSearchLoading = status === "loading" || status === "stalled";
 
     // Reset filters (but not sort) whenever the search query changes
     const prevSearchText = useRef(searchText);
@@ -179,10 +214,22 @@ const SearchResults = ({ query }) => {
             setSelectedCategories([]);
             setSelectedCollections([]);
             setPriceRange({ min: "", max: "" });
+            setCachedPreviewProducts(getPreviewProductsCache(searchText));
+            setHasLoadedOnce(false);
         }
     }, [searchText]);
 
-    // Sync filter/sort state back to URL whenever it changes (skip the first mount)
+    useEffect(() => {
+        if (!results || results.__isArtificial || status !== "idle") return;
+        setHasLoadedOnce(true);
+    }, [results, status]);
+
+    useEffect(() => {
+        if (products.length === 0) return;
+        setCachedPreviewProducts(products);
+    }, [products]);
+
+    // Keep URL params in sync without triggering App Router navigation.
     const isInitialized = useRef(false);
     useEffect(() => {
         if (!isInitialized.current) {
@@ -199,8 +246,8 @@ const SearchResults = ({ query }) => {
         if (priceRange.min) params.set("price_min", priceRange.min);
         if (priceRange.max) params.set("price_max", priceRange.max);
 
-        router.replace(`?${params.toString()}`, { scroll: false });
-    }, [sortBy, selectedCategories, selectedCollections, priceRange]);
+        replaceSearchUrl(params.toString() ? `?${params.toString()}` : "");
+    }, [baseFilterBy, priceRange, searchText, selectedCategories, selectedCollections, sortBy]);
 
     const toggleCategory = (category) => {
         setSelectedCategories((prev) =>
@@ -230,6 +277,24 @@ const SearchResults = ({ query }) => {
         });
     }, [products, priceRange]);
 
+    const filteredCachedPreviewProducts = useMemo(() => {
+        if (priceRange.min === "" && priceRange.max === "") return cachedPreviewProducts;
+
+        const min = priceRange.min !== "" ? Number(priceRange.min) : null;
+        const max = priceRange.max !== "" ? Number(priceRange.max) : null;
+
+        return cachedPreviewProducts.filter((product) => {
+            const price = product.price ?? 0;
+            if (min != null && price < min) return false;
+            if (max != null && price > max) return false;
+            return true;
+        });
+    }, [cachedPreviewProducts, priceRange]);
+
+    const displayProducts =
+        !hasLoadedOnce && filteredCachedPreviewProducts.length > 0 ? filteredCachedPreviewProducts : filteredProducts;
+    const shouldShowSkeleton = !hasLoadedOnce && isSearchLoading && filteredCachedPreviewProducts.length === 0;
+
     const handleIncrease = async (id) => {
         await addToCart(id);
     };
@@ -257,250 +322,270 @@ const SearchResults = ({ query }) => {
                     ? `Up to ₹${priceRange.max}`
                     : "";
 
-    // isPending = no data at all yet (first load for this query key)
-    // isFetching && !isPending = new query in-flight but we have previous data to show
-    if (isPending && isFetching) {
-        return (
-            <div className="relative min-h-screen bg-white pb-24">
+    return (
+        <div className="relative min-h-screen bg-white pb-24">
+            <QueryAndSortSync queryText={searchText} sortBy={sortBy} />
+
+            <Configure filters={combinedFilterBy} hitsPerPage={10} maxValuesPerFacet={200} />
+
+            <Index indexName={TYPESENSE_INDEXES.PRODUCTS}>
+                <Configure filters={baseFilterBy} hitsPerPage={1} maxValuesPerFacet={200} />
+                <FacetCollector onUpdate={setFacetData} />
+            </Index>
+
+            {shouldShowSkeleton ? (
                 <div className="mt-2 space-y-3">
                     {Array.from({ length: 6 }).map((_, i) => (
                         <SearchResultsSkeleton key={i} />
                     ))}
                 </div>
-            </div>
-        );
-    }
+            ) : (
+                <>
+                    <div
+                        className={`mt-2 space-y-3 transition-opacity duration-150 ${isSearchLoading ? "opacity-50" : "opacity-100"}`}
+                    >
+                        {hasActiveFiltersOrSort && (
+                            <div className="px-1">
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="flex flex-wrap gap-2">
+                                        {sortBy && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setSortBy("")}
+                                                className="h-[32px] inline-flex items-center gap-[8px] px-[8px] py-[4px] rounded-[8px] border border-[#F0C3B4]  text-xs text-[#C4512B]"
+                                            >
+                                                {SORT_OPTIONS.find((opt) => opt.id === sortBy)?.label ?? "Sort"}
+                                                <span aria-hidden>×</span>
+                                            </button>
+                                        )}
 
-    return (
-        <div className="relative min-h-screen bg-white pb-24">
-            <div className={`mt-2 space-y-3 transition-opacity duration-150 ${isFetching ? "opacity-50" : "opacity-100"}`}>
-                {hasActiveFiltersOrSort && (
-                    <div className="px-1">
-                        <div className="flex items-center justify-between gap-2">
-                            <div className="flex flex-wrap gap-2">
-                                {sortBy && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setSortBy("")}
-                                        className="h-[32px] inline-flex items-center gap-[8px] px-[8px] py-[4px] rounded-[8px] border border-[#F0C3B4]  text-xs text-[#C4512B]"
-                                    >
-                                        {SORT_OPTIONS.find((opt) => opt.id === sortBy)?.label ?? "Sort"}
-                                        <span aria-hidden>×</span>
-                                    </button>
-                                )}
+                                        {selectedCategories.map((category) => (
+                                            <button
+                                                key={category}
+                                                type="button"
+                                                onClick={() => toggleCategory(category)}
+                                                className="h-[32px] inline-flex items-center gap-[8px] px-[8px] py-[4px] rounded-[8px] border border-[#F0C3B4]  text-xs text-[#C4512B]"
+                                            >
+                                                {formatCategoryLabel(category)}
+                                                <span aria-hidden>×</span>
+                                            </button>
+                                        ))}
 
-                                {selectedCategories.map((category) => (
-                                    <button
-                                        key={category}
-                                        type="button"
-                                        onClick={() => toggleCategory(category)}
-                                        className="h-[32px] inline-flex items-center gap-[8px] px-[8px] py-[4px] rounded-[8px] border border-[#F0C3B4]  text-xs text-[#C4512B]"
-                                    >
-                                        {formatCategoryLabel(category)}
-                                        <span aria-hidden>×</span>
-                                    </button>
-                                ))}
+                                        {selectedCollections.map((collection) => (
+                                            <button
+                                                key={collection}
+                                                type="button"
+                                                onClick={() => setSelectedCollections((prev) => prev.filter((c) => c !== collection))}
+                                                className="h-[32px] inline-flex items-center gap-[8px] px-[8px] py-[4px] rounded-[8px] border border-[#F0C3B4]  text-xs text-[#C4512B]"
+                                            >
+                                                {formatCategoryLabel(collection)}
+                                                <span aria-hidden>×</span>
+                                            </button>
+                                        ))}
 
-                                {selectedCollections.map((collection) => (
-                                    <button
-                                        key={collection}
-                                        type="button"
-                                        onClick={() => setSelectedCollections((prev) => prev.filter((c) => c !== collection))}
-                                        className="h-[32px] inline-flex items-center gap-[8px] px-[8px] py-[4px] rounded-[8px] border border-[#F0C3B4]  text-xs text-[#C4512B]"
-                                    >
-                                        {formatCategoryLabel(collection)}
-                                        <span aria-hidden>×</span>
-                                    </button>
-                                ))}
-
-                                {priceRangeLabel && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setPriceRange({ min: "", max: "" })}
-                                        className="h-[32px] inline-flex items-center gap-[8px] px-[8px] py-[4px] rounded-[8px] border border-[#F0C3B4]  text-xs text-[#C4512B]"
-                                    >
-                                        {priceRangeLabel}
-                                        <span aria-hidden>×</span>
-                                    </button>
-                                )}
-                            </div>
-
-                            <button
-                                type="button"
-                                onClick={clearFilters}
-                                className="text-[12px] leading-[16px] font-semibold text-[#C4512B] flex-shrink-0"
-                            >
-                                Clear all
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {filteredProducts.map((product) => {
-                    const hasVariants = product.variants?.length > 0;
-                    const displayRating = getDisplayRating(product.rating);
-                    // const quantity = quantities[product.id] ?? 0;
-                    const totalVariantQty = hasVariants
-                        ? product.variants.reduce((sum, v) => {
-                            const vid = v.attributes?.shopifyVariantId;
-                            return sum + (vid ? (quantities[vid] ?? 0) : 0);
-                        }, 0)
-                        : 0;
-
-                    return (
-                        <div key={product.id} className="flex gap-3 bg-white py-3 border-b border-gray-100">
-                            <div className="relative w-[72px] h-[111px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                                {product.featured_image && (
-                                    <Link
-                                        href={`https://nathabit.in/products/${product.url}`}
-                                        prefetch={false}
-                                        target="_blank"
-                                        onClick={() => addToRecentlyViewed(product)}
-                                    >
-                                        <Image src={product.featured_image} alt={product.title} fill />
-                                    </Link>
-                                )}
-                            </div>
-
-                            <div className="flex-1 flex flex-col min-w-0">
-                                <div className="flex justify-between gap-3">
-                                    <div className="flex flex-col gap-[2px]">
-                                        <div className="text-[14px] text-[#292E2C] leading-[20px]">
-                                            {highlightMatch(product.title, searchText)}
-                                        </div>
-
-                                        <div className="text-[12px] text-[#7B818C] leading-[16px]">{product.subtitle}</div>
-
-                                        <div className="flex gap-x-2 mt-[6px]">
-                                            <p className="text-[12px] leading-[16px] text-[#676B73] bg-[#F5F7FA] px-[4px]">
-                                                {product.variants[0].attributes.measurementValue &&
-                                                    product.variants[0].attributes.measurementUnit
-                                                    ? `${product.variants[0].attributes.measurementValue}${product.variants[0].attributes.measurementUnit}`
-                                                    : "1 unit"}
-                                            </p>
-                                            <div className="flex gap-x-2 bg-[#F5F7FA] px-[4px] rounded-[2px] w-fit">
-                                                <StarRating rating={product.rating} />
-                                                <p className="text-[12px] leading-[16px] text-[#676B73]">({displayRating})</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div
-                                        className={`flex flex-col w-[72px] h-[58px] rounded-[8px] items-center flex-shrink-0 bg-[#FCF8F7]`}
-                                    >
-                                        {hasVariants && (
-                                            <>
-                                                {totalVariantQty === 0 ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setVariantSheetProduct(product)}
-                                                        className="w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#F0C3B4] border bg-[#FCF1ED] text-[14px] leading-[20px] font-bold text-[#C4512B]"
-                                                    >
-                                                        ADD
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setVariantSheetProduct(product)}
-                                                        className="flex items-center justify-around w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#C4512B] border text-[14px] leading-[20px] font-bold bg-white text-[#C4512B]"
-                                                    >
-                                                        <span>{totalVariantQty}</span>
-                                                        <Image
-                                                            src="/svg/chevron-down-orange.svg"
-                                                            width={7}
-                                                            height={4}
-                                                            alt=""
-                                                            aria-hidden
-                                                            className="absolute right-[12px]"
-                                                        />
-                                                    </button>
-                                                )}
-                                                <p className="text-[10px]  leading-[12px] rounded-br-[8p] px-[8px] pt-[2px] pb-[4px] rounded-bl-[8px] font-medium bg-[#FCF8F7] text-[#C4512B]">
-                                                    {product.variants.length} {product.variants.length > 1 ? "Options" : "Option"}{" "}
-                                                </p>
-                                            </>
+                                        {priceRangeLabel && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setPriceRange({ min: "", max: "" })}
+                                                className="h-[32px] inline-flex items-center gap-[8px] px-[8px] py-[4px] rounded-[8px] border border-[#F0C3B4]  text-xs text-[#C4512B]"
+                                            >
+                                                {priceRangeLabel}
+                                                <span aria-hidden>×</span>
+                                            </button>
                                         )}
                                     </div>
-                                </div>
 
-                                <div className="mt-2 flex items-baseline gap-[2px] flex-wrap">
-                                    {formatPrice(product.price) && (
-                                        <p className="text-[10px] text-[#292E2C]">
-                                            ₹<span className="text-[16px]">{formatPrice(product.price)}</span>
-                                        </p>
-                                    )}
-
-                                    {product.compare_at_price && product.compare_at_price > product.price && (
-                                        <>
-                                            <p className="text-[10px] text-[#9DA6B2]">
-                                                ₹
-                                                <span className="text-[12px] leading-[10px]  line-through">
-                                                    {formatPrice(product.compare_at_price)}
-                                                </span>
-                                            </p>
-                                            {getDiscountPercent(product.price, product.compare_at_price) != null && (
-                                                <span className="text-[12px] leading-[20px] font-medium text-[#D13F44]">
-                                                    -{getDiscountPercent(product.price, product.compare_at_price)}%
-                                                </span>
-                                            )}
-                                        </>
-                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={clearFilters}
+                                        className="text-[12px] leading-[16px] font-semibold text-[#C4512B] flex-shrink-0"
+                                    >
+                                        Clear all
+                                    </button>
                                 </div>
                             </div>
-                        </div>
-                    );
-                })}
+                        )}
 
-                {filteredProducts.length === 0 && (
-                    <div className="py-16 text-center text-sm text-gray-500">No products found for this search.</div>
-                )}
-            </div>
+                        {displayProducts.map((product) => {
+                            const hasVariants = product.variants?.length > 0;
+                            const displayRating = getDisplayRating(product.rating);
+                            // const quantity = quantities[product.id] ?? 0;
+                            const totalVariantQty = hasVariants
+                                ? product.variants.reduce((sum, v) => {
+                                    const vid = v.attributes?.shopifyVariantId;
+                                    return sum + (vid ? (quantities[vid] ?? 0) : 0);
+                                }, 0)
+                                : 0;
 
-            {/* Sort & Filter bar */}
-            <SortAndFilterBar
-                sortBy={sortBy}
-                setIsSortOpen={setIsSortOpen}
-                setIsFilterOpen={setIsFilterOpen}
-                activeFilterCount={activeFilterCount}
-                sortOptions={SORT_OPTIONS}
-            />
+                            return (
+                                <div key={product.id} className="flex gap-3 bg-white py-3 border-b border-gray-100">
+                                    <div className="relative w-[72px] h-[111px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                        {product.featured_image && (
+                                            <Link
+                                                href={`https://nathabit.in/products/${product.url}`}
+                                                prefetch={false}
+                                                target="_blank"
+                                                onClick={() => addToRecentlyViewed(product)}
+                                            >
+                                                <Image src={product.featured_image} alt={product.title} fill />
+                                            </Link>
+                                        )}
+                                    </div>
 
-            {/* Sort bottom sheet */}
-            <SortSheet
-                isOpen={isSortOpen}
-                onClose={() => setIsSortOpen(false)}
-                sortBy={sortBy}
-                onSortChange={setSortBy}
-                sortOptions={SORT_OPTIONS}
-            />
+                                    <div className="flex-1 flex flex-col min-w-0">
+                                        <div className="flex justify-between gap-3">
+                                            <div className="flex flex-col gap-[2px]">
+                                                <div className="text-[14px] text-[#292E2C] leading-[20px]">{product.title}</div>
 
-            {/* Filters bottom sheet */}
-            <FilterSheet
-                isOpen={isFilterOpen}
-                onClose={() => setIsFilterOpen(false)}
-                selectedCategories={selectedCategories}
-                selectedCollections={selectedCollections}
-                priceRange={priceRange}
-                facetCategories={facetCategories}
-                facetCollections={facetCollections}
-                onApply={({ categories, collections, priceRange: pr }) => {
-                    setSelectedCategories(categories);
-                    setSelectedCollections(collections);
-                    setPriceRange(pr);
-                }}
-            />
+                                                <div className="text-[12px] text-[#7B818C] leading-[16px]">{product.subtitle}</div>
 
-            {/* Variant picker bottom sheet */}
-            <VariantSheet
-                isOpen={!!variantSheetProduct}
-                onClose={() => setVariantSheetProduct(null)}
-                product={variantSheetProduct}
-                quantities={quantities}
-                isLoadingByVariant={isLoadingByVariant}
-                onIncrease={handleIncrease}
-                onDecrease={handleDecrease}
-            />
+                                                <div className="flex gap-x-2 mt-[6px]">
+                                                    <p className="text-[12px] leading-[16px] text-[#676B73] bg-[#F5F7FA] px-[4px]">
+                                                        {product.variants[0].attributes.measurementValue &&
+                                                            product.variants[0].attributes.measurementUnit
+                                                            ? `${product.variants[0].attributes.measurementValue}${product.variants[0].attributes.measurementUnit}`
+                                                            : "1 unit"}
+                                                    </p>
+                                                    <div className="flex gap-x-2 bg-[#F5F7FA] px-[4px] rounded-[2px] w-fit">
+                                                        <StarRating rating={product.rating} />
+                                                        <p className="text-[12px] leading-[16px] text-[#676B73]">({displayRating})</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div
+                                                className={`flex flex-col w-[72px] h-[58px] rounded-[8px] items-center flex-shrink-0 bg-[#FCF8F7]`}
+                                            >
+                                                {hasVariants && (
+                                                    <>
+                                                        {totalVariantQty === 0 ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setVariantSheetProduct(product)}
+                                                                className="w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#F0C3B4] border bg-[#FCF1ED] text-[14px] leading-[20px] font-bold text-[#C4512B]"
+                                                            >
+                                                                ADD
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setVariantSheetProduct(product)}
+                                                                className="flex items-center justify-around w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#C4512B] border text-[14px] leading-[20px] font-bold bg-white text-[#C4512B]"
+                                                            >
+                                                                <span>{totalVariantQty}</span>
+                                                                <Image
+                                                                    src="/svg/chevron-down-orange.svg"
+                                                                    width={7}
+                                                                    height={4}
+                                                                    alt=""
+                                                                    aria-hidden
+                                                                    className="absolute right-[12px]"
+                                                                />
+                                                            </button>
+                                                        )}
+                                                        <p className="text-[10px]  leading-[12px] rounded-br-[8p] px-[8px] pt-[2px] pb-[4px] rounded-bl-[8px] font-medium bg-[#FCF8F7] text-[#C4512B]">
+                                                            {product.variants.length} {product.variants.length > 1 ? "Options" : "Option"}{" "}
+                                                        </p>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-2 flex items-baseline gap-[2px] flex-wrap">
+                                            {formatPrice(product.price) && (
+                                                <p className="text-[10px] text-[#292E2C]">
+                                                    ₹<span className="text-[16px]">{formatPrice(product.price)}</span>
+                                                </p>
+                                            )}
+
+                                            {product.compare_at_price && product.compare_at_price > product.price && (
+                                                <>
+                                                    <p className="text-[10px] text-[#9DA6B2]">
+                                                        ₹
+                                                        <span className="text-[12px] leading-[10px]  line-through">
+                                                            {formatPrice(product.compare_at_price)}
+                                                        </span>
+                                                    </p>
+                                                    {getDiscountPercent(product.price, product.compare_at_price) != null && (
+                                                        <span className="text-[12px] leading-[20px] font-medium text-[#D13F44]">
+                                                            -{getDiscountPercent(product.price, product.compare_at_price)}%
+                                                        </span>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+
+                        {hasLoadedOnce && filteredProducts.length === 0 && (
+                            <div className="py-16 text-center text-sm text-gray-500">No products found for this search.</div>
+                        )}
+                    </div>
+                    {/* Sort & Filter bar */}
+                    <SortAndFilterBar
+                        sortBy={sortBy}
+                        setIsSortOpen={setIsSortOpen}
+                        setIsFilterOpen={setIsFilterOpen}
+                        activeFilterCount={activeFilterCount}
+                        sortOptions={SORT_OPTIONS}
+                    />
+
+                    {/* Sort bottom sheet */}
+                    <SortSheet
+                        isOpen={isSortOpen}
+                        onClose={() => setIsSortOpen(false)}
+                        sortBy={sortBy}
+                        onSortChange={setSortBy}
+                        sortOptions={SORT_OPTIONS}
+                    />
+
+                    {/* Filters bottom sheet */}
+                    <FilterSheet
+                        isOpen={isFilterOpen}
+                        onClose={() => setIsFilterOpen(false)}
+                        selectedCategories={selectedCategories}
+                        selectedCollections={selectedCollections}
+                        priceRange={priceRange}
+                        facetCategories={facetCategories}
+                        facetCollections={facetCollections}
+                        onApply={({ categories, collections, priceRange: pr }) => {
+                            setSelectedCategories(categories);
+                            setSelectedCollections(collections);
+                            setPriceRange(pr);
+                        }}
+                    />
+
+                    {/* Variant picker bottom sheet */}
+                    <VariantSheet
+                        isOpen={!!variantSheetProduct}
+                        onClose={() => setVariantSheetProduct(null)}
+                        product={variantSheetProduct}
+                        quantities={quantities}
+                        isLoadingByVariant={isLoadingByVariant}
+                        onIncrease={handleIncrease}
+                        onDecrease={handleDecrease}
+                    />
+                </>
+            )}
         </div>
+    );
+};
+
+const SearchResults = ({ query }) => {
+    const searchText = typeof query === "string" ? query.trim() : query?.q?.trim() || "";
+
+    return (
+        <InstantSearch
+            searchClient={typesenseSearchClient}
+            indexName={TYPESENSE_INDEXES.PRODUCTS}
+            initialUiState={{
+                [TYPESENSE_INDEXES.PRODUCTS]: { query: searchText },
+            }}
+        >
+            <SearchResultsContent query={query} />
+        </InstantSearch>
     );
 };
 

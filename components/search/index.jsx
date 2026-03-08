@@ -7,6 +7,13 @@ import SearchHomePage from "./_builder/SearchHomePage";
 import SearchSuggestionAndProducts from "./_builder/SearchSuggestionAndProducts";
 import SearchResults from "./_builder/SearchResults";
 
+const replaceSearchUrl = (search) => {
+    if (typeof window === "undefined") return;
+
+    const nextUrl = search ? `${window.location.pathname}${search}` : window.location.pathname;
+    window.history.replaceState(window.history.state, "", nextUrl);
+};
+
 export default function SearchIndex() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -61,8 +68,7 @@ export default function SearchIndex() {
         addToRecentSearches(query);
         setResultsQuery({ q: query });
         setIsResultsOpen(true);
-        // Clear all filter/sort params — SearchResults initialises fresh from the new empty URL
-        router.replace(`?q=${encodeURIComponent(query)}`, { scroll: false });
+        replaceSearchUrl(`?q=${encodeURIComponent(query)}`);
     };
 
     const handleSuggestionClick = (suggestion) => {
@@ -74,7 +80,7 @@ export default function SearchIndex() {
         const params = new URLSearchParams();
         params.set("q", suggestion.query);
         if (suggestion.filter_by) params.set("filter_by", suggestion.filter_by);
-        router.replace(`?${params.toString()}`, { scroll: false });
+        replaceSearchUrl(`?${params.toString()}`);
     };
 
     const handleBack = () => {
@@ -88,7 +94,7 @@ export default function SearchIndex() {
             // Step back from suggestions to home
             setSearchValue("");
             setIsResultsOpen(false);
-            router.replace("?", { scroll: false });
+            replaceSearchUrl("");
             return;
         }
 
@@ -104,7 +110,7 @@ export default function SearchIndex() {
                 onClear={() => {
                     setSearchValue("");
                     setIsResultsOpen(false);
-                    router.replace("?", { scroll: false });
+                    replaceSearchUrl("");
                 }}
                 onSubmit={handleSubmitSearch}
                 onBack={handleBack}
@@ -113,7 +119,6 @@ export default function SearchIndex() {
 
             {searchValue ? (
                 isResultsOpen ? (
-                    // key=query.q remounts SearchResults on a new search so filter state resets
                     <SearchResults query={resultsQuery} />
                 ) : (
                     <SearchSuggestionAndProducts
