@@ -42,11 +42,7 @@ export default function FilterSheet({
     { id: "category", label: "Category", count: localCategories.length },
     { id: "collections", label: "Collection", count: localCollections.length },
     { id: "price", label: "Price Range", count: 0 },
-  ].filter((tab) => {
-    if (tab.id === "category") return facetCategories.length > 0;
-    if (tab.id === "collections") return facetCollections.length > 0;
-    return true;
-  });
+  ];
 
   const [activeTab, setActiveTab] = useState(tabs[0]?.id ?? "category");
 
@@ -78,7 +74,7 @@ export default function FilterSheet({
         <div className="w-full rounded-t-2xl bg-white flex flex-col" style={{ maxHeight: "80vh" }}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 pt-4 pb-[16px] shrink-0 border-b border-gray-100">
-            <h2 className="text-base font-bold text-[#111827]">Filters</h2>
+            <h2 className="text-[16px] leading-[20px] font-black text-[#111827]">Filters</h2>
             {/* {(localCategories.length > 0 ||
                             localCollections.length > 0 ||
                             localPriceRange.min !== "" ||
@@ -112,7 +108,7 @@ export default function FilterSheet({
                   >
                     <span>{tab.label}</span>
                     {tab.count > 0 && (
-                      <div className="text-white text-[10px] w-[20px] h-[20px] flex items-center justify-center font-semibold bg-[#C4512B] rounded-full">
+                      <div className="text-white text-[10px] w-[20px] h-[20px] flex items-center justify-center font-bold bg-[#C4512B] rounded-full">
                         {tab.count}
                       </div>
                     )}
@@ -125,45 +121,53 @@ export default function FilterSheet({
             <div className="flex-1 overflow-y-auto px-4 py-3 bg-[#F9FAFB]">
               {activeTab === "category" && (
                 <div className="space-y-3">
-                  {facetCategories.map((item) => {
-                    const value = item.value;
-                    const checked = localCategories.includes(value);
-                    return (
-                      <label key={value} className="flex items-center justify-between text-sm cursor-pointer">
-                        <span className="text-[#111827]">{formatCategoryLabel(value)}</span>
-                        <input
-                          type="checkbox"
-                          className="h-[18px] w-[18px] rounded border-gray-300 accent-[#C05621] cursor-pointer"
-                          checked={checked}
-                          onChange={() => toggleLocalCategory(value)}
-                        />
-                      </label>
-                    );
-                  })}
+                  {facetCategories.length === 0 ? (
+                    <p className="text-sm text-[#6B7280]">No category filters available.</p>
+                  ) : (
+                    facetCategories.map((item) => {
+                      const value = item.value;
+                      const checked = localCategories.includes(value);
+                      return (
+                        <label key={value} className="flex items-center justify-between text-sm cursor-pointer">
+                          <span className="text-[#111827]">{formatCategoryLabel(value)}</span>
+                          <input
+                            type="checkbox"
+                            className="h-[18px] w-[18px] rounded border-gray-300 accent-[#C05621] cursor-pointer"
+                            checked={checked}
+                            onChange={() => toggleLocalCategory(value)}
+                          />
+                        </label>
+                      );
+                    })
+                  )}
                 </div>
               )}
 
               {activeTab === "collections" && (
                 <div className="space-y-3">
-                  {facetCollections.map((item) => {
-                    const value = item.value;
-                    const checked = localCollections.includes(value);
-                    return (
-                      <label key={value} className="flex items-center justify-between text-sm cursor-pointer">
-                        <span className="text-[#111827]">{formatCategoryLabel(value)}</span>
-                        <input
-                          type="checkbox"
-                          className="h-[18px] w-[18px] rounded border-gray-300 accent-[#C05621] cursor-pointer"
-                          checked={checked}
-                          onChange={() =>
-                            setLocalCollections((prev) =>
-                              checked ? prev.filter((c) => c !== value) : [...prev, value],
-                            )
-                          }
-                        />
-                      </label>
-                    );
-                  })}
+                  {facetCollections.length === 0 ? (
+                    <p className="text-sm text-[#6B7280]">No collection filters available.</p>
+                  ) : (
+                    facetCollections.map((item) => {
+                      const value = item.value;
+                      const checked = localCollections.includes(value);
+                      return (
+                        <label key={value} className="flex items-center justify-between text-sm cursor-pointer">
+                          <span className="text-[#111827]">{formatCategoryLabel(value)}</span>
+                          <input
+                            type="checkbox"
+                            className="h-[18px] w-[18px] rounded border-gray-300 accent-[#C05621] cursor-pointer"
+                            checked={checked}
+                            onChange={() =>
+                              setLocalCollections((prev) =>
+                                checked ? prev.filter((c) => c !== value) : [...prev, value],
+                              )
+                            }
+                          />
+                        </label>
+                      );
+                    })
+                  )}
                 </div>
               )}
 
@@ -217,7 +221,7 @@ export default function FilterSheet({
             <button
               type="button"
               onClick={handleApply}
-              className="w-full h-11 rounded-xl bg-[#111827] text-sm font-semibold text-white"
+              className="w-full h-11 rounded-xl bg-[#111827] text-sm font-bold text-white"
             >
               Apply filters
             </button>

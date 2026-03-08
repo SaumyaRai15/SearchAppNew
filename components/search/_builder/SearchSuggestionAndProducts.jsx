@@ -44,7 +44,7 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick }) {
       ) : suggestions.length === 0 && products.length === 0 && query ? (
         <div className="mt-2 bg-white py-16 flex flex-col items-center gap-1">
           <p className="text-[14px] text-[#7B818C]">0 Matching Results for</p>
-          <p className="text-[16px] text-[#292E2C] font-semibold">&ldquo;{query}&rdquo;</p>
+          <p className="text-[16px] text-[#292E2C] font-bold">&ldquo;{query}&rdquo;</p>
         </div>
       ) : (
         <div className="mt-2 bg-white">

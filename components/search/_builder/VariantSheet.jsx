@@ -151,7 +151,7 @@ export default function VariantSheet({
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-[16px] font-medium leading-[24px] text-[#292E2C]">{attrs.title}</p>
                           {discount != null && (
-                            <span className="text-[12px] font-semibold text-[#D13F44] bg-[#FFF5F5] px-2 py-0.5 rounded-[8px]">
+                            <span className="text-[12px] font-bold text-[#D13F44] bg-[#FFF5F5] px-2 py-0.5 rounded-[8px]">
                               -{discount}% OFF
                             </span>
                           )}
@@ -185,7 +185,7 @@ export default function VariantSheet({
                               )}
                             </button>
                           ) : (
-                            <div className="w-[72px] h-[40px] flex items-center justify-between px-[5px] py-[4px] rounded-[8px] border border-[#F0C3B4] text-[14px] font-bold text-[#C4512B]">
+                            <div className="w-[72px] h-[40px] flex items-center justify-between px-[5px] py-[4px] rounded-[8px] border border-[#C4512B] text-[14px] font-bold text-[#C4512B]">
                               <button
                                 type="button"
                                 onClick={() => variantId && onDecrease(variantId)}
@@ -216,6 +216,18 @@ export default function VariantSheet({
                     </div>
                   );
                 })}
+              </div>
+
+              <div className="px-3 pb-3 pt-3 shrink-0 bg-[rgba(255,255,255,0.72)] p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.07)] backdrop-blur-[12px]">
+                <div className="flex w-full rounded-[20px]">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="h-14 w-full rounded-xl bg-[#111827] text-sm font-bold text-white"
+                  >
+                    Continue
+                  </button>
+                </div>
               </div>
             </>
           )}

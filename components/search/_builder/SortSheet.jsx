@@ -26,9 +26,11 @@ export default function SortSheet({ isOpen, onClose, sortBy, onSortChange, sortO
           </button>
         </div>
 
-        <div className="w-full rounded-t-2xl bg-white pb-6 pt-4 px-4">
-          <h2 className="text-[16px] text-[#18191A] font-black leading-[24px] mb-3">Sort by</h2>
-          <div className="divide-y divide-gray-100">
+        <div className="w-full overflow-hidden rounded-t-2xl bg-[#F9FAFB]">
+          <div className="shrink-0 border-b border-gray-100 bg-white px-4 py-4">
+            <h2 className="text-[16px] text-[#18191A] font-black leading-[24px]">Sort by</h2>
+          </div>
+          <div className="divide-y divide-gray-100 px-4">
             {sortOptions.map((option) => {
               const active = sortBy === option.id;
 
@@ -41,7 +43,7 @@ export default function SortSheet({ isOpen, onClose, sortBy, onSortChange, sortO
                     onClose();
                   }}
                   className={`w-full text-left py-3 text-[16px] leading-[24px] ${
-                    active ? "text-[#111827] font-semibold" : "text-[#292E2C]"
+                    active ? "text-[#C4512B]" : "text-[#292E2C]"
                   }`}
                 >
                   {option.label}

@@ -8,8 +8,18 @@ nextjs-portal {
   font-family: "Satoshi";
   src: url("/fonts/Satoshi-Medium.woff2") format("woff2");
   font-weight: 500;
-  /* font-style: medium; */
-  /* font-display: swap; */
+}
+
+@font-face {
+  font-family: "Satoshi";
+  src: url("/fonts/Satoshi-Black.woff2") format("woff2");
+  font-weight: 900;
+}
+
+@font-face {
+  font-family: "Satoshi";
+  src: url("/fonts/Satoshi-Bold.woff2") format("woff2");
+  font-weight: 700;
 }
 
 body {

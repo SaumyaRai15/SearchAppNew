@@ -45,12 +45,12 @@ const addToRecentlyViewed = (product) => {
 const SORT_OPTIONS = [
   {
     id: "PRICE_LOW_HIGH",
-    label: "Price - Low to High",
+    label: "Low to High",
     indexName: TYPESENSE_INDEXES.PRODUCTS_PRICE_LOW_HIGH,
   },
   {
     id: "PRICE_HIGH_LOW",
-    label: "Price - High to low",
+    label: "High to low",
     indexName: TYPESENSE_INDEXES.PRODUCTS_PRICE_HIGH_LOW,
   },
 ];
@@ -398,7 +398,7 @@ const SearchResultsContent = ({ query }) => {
                   <button
                     type="button"
                     onClick={clearFilters}
-                    className="text-[12px] leading-[16px] font-semibold text-[#C4512B] flex-shrink-0"
+                    className="text-[12px] leading-[16px] font-bold text-[#C4512B] flex-shrink-0"
                   >
                     Clear all
                   </button>
@@ -419,19 +419,16 @@ const SearchResultsContent = ({ query }) => {
 
               return (
                 <div key={product.id} className="flex gap-3 bg-white py-3 border-b border-gray-100">
-                  <div className="relative w-[72px] h-[111px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                    {product.featured_image && (
-                      <Link
-                        href={`https://nathabit.in/products/${product.url}`}
-                        prefetch={false}
-                        target="_blank"
-                        onClick={() => addToRecentlyViewed(product)}
-                      >
-                        <Image src={product.featured_image} alt={product.title} fill />
-                      </Link>
-                    )}
-                  </div>
-
+                  <Link
+                    href={`https://nathabit.in/products/${product.url}`}
+                    prefetch={false}
+                    target="_blank"
+                    onClick={() => addToRecentlyViewed(product)}
+                  >
+                    <div className="relative w-[72px] h-[111px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                      <Image src={product.featured_image} alt={product.title} fill unoptimized loading="eager" />
+                    </div>
+                  </Link>
                   <div className="flex-1 flex flex-col min-w-0">
                     <div className="flex justify-between gap-3">
                       <div className="flex flex-col gap-[2px]">
@@ -462,7 +459,7 @@ const SearchResultsContent = ({ query }) => {
                               <button
                                 type="button"
                                 onClick={() => setVariantSheetProduct(product)}
-                                className="w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#F0C3B4] border bg-[#FCF1ED] text-[14px] leading-[20px] font-bold text-[#C4512B]"
+                                className="w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#F0C3B4] border bg-[#FCF1ED] text-[14px] leading-[20px] font-black text-[#C4512B]"
                               >
                                 ADD
                               </button>
@@ -470,7 +467,7 @@ const SearchResultsContent = ({ query }) => {
                               <button
                                 type="button"
                                 onClick={() => setVariantSheetProduct(product)}
-                                className="flex items-center justify-around w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#C4512B] border text-[14px] leading-[20px] font-bold bg-white text-[#C4512B]"
+                                className="flex items-center justify-around w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#C4512B] border text-[14px] leading-[20px] font-black bg-white text-[#C4512B]"
                               >
                                 <span>{totalVariantQty}</span>
                                 <Image

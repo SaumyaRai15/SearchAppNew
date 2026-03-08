@@ -6,53 +6,58 @@ const SortAndFilterBar = ({ sortBy, setIsSortOpen, setIsFilterOpen, activeFilter
   return (
     <div
       className="
-        fixed bottom-0 inset-x-0
+        fixed inset-x-0 bottom-0
         z-30
-        bg-white/10 backdrop-blur-[10px]
-        border-t border-gray-200
-        shadow-[0_-4px_20px_rgba(0,0,0,0.08)]
-        flex items-center
+        flex justify-center
+        px-4
+        pb-[calc(env(safe-area-inset-bottom)+16px)]
+        pointer-events-none
+      
       "
     >
-      {/* SORT */}
-      <button
-        type="button"
-        onClick={() => setIsSortOpen(true)}
-        className={`flex-1 py-4 flex items-center justify-center gap-2 text-sm font-medium border-r border-gray-200 ${
-          sortBy ? "text-[#C4512B]" : "text-[#292E2C]"
-        }`}
-      >
-        <span className="text-[14px]">{sortBy ? selectedSortLabel : "Sort"}</span>
+      <div className="pointer-events-auto flex w-full max-h-[44px] max-w-[280px] items-center rounded-[32px] bg-transparent shadow-[0_12px_32px_rgba(0,0,0,0.16)] backdrop-blur-[10px] backdrop-saturate-150">
+        {/* SORT */}
+        <button
+          type="button"
+          onClick={() => setIsSortOpen(true)}
+          className={`flex h-[44px] flex-1 items-center justify-center gap-2 rounded-s-[32px] text-sm font-medium transition-colors ${
+            sortBy ? "bg-[#FCF1ED]/70 text-[#C4512B]" : "text-[#292E2C]"
+          }`}
+        >
+          <span className="text-[14px] font-bold">{sortBy ? selectedSortLabel : "Sort"}</span>
 
-        <span className="relative w-4 h-4">
-          {sortBy ? (
-            <Image src="/svg/sort-active.svg" alt="Sort" fill sizes="16px" unoptimized />
-          ) : (
-            <Image src="/svg/sort.svg" alt="Sort" fill sizes="16px" unoptimized />
-          )}
-        </span>
-      </button>
-
-      {/* FILTER */}
-      <button
-        type="button"
-        onClick={() => setIsFilterOpen(true)}
-        className={`flex-1 py-4 flex items-center justify-center gap-2 text-sm font-medium ${
-          activeFilterCount > 0 ? "text-[#C4512B]" : "text-[#292E2C]"
-        }`}
-      >
-        <span className="text-[14px]">Filters</span>
-
-        {activeFilterCount > 0 ? (
-          <div className="text-white text-[10px] w-[18px] h-[18px] flex items-center justify-center font-semibold bg-[#C4512B] rounded-full">
-            {activeFilterCount}
-          </div>
-        ) : (
           <span className="relative w-4 h-4">
-            <Image src="/svg/filter.svg" alt="Filters" fill sizes="16px" unoptimized />
+            {sortBy ? (
+              <Image src="/svg/sort-active.svg" alt="Sort" fill sizes="16px" unoptimized />
+            ) : (
+              <Image src="/svg/sort.svg" alt="Sort" fill sizes="16px" unoptimized />
+            )}
           </span>
-        )}
-      </button>
+        </button>
+
+        {/* <div className="h-full w-px bg-[#C4512B]" /> */}
+
+        {/* FILTER */}
+        <button
+          type="button"
+          onClick={() => setIsFilterOpen(true)}
+          className={`flex h-[44px] flex-1 items-center justify-center gap-2 rounded-e-[32px] text-sm font-medium transition-colors ${
+            activeFilterCount > 0 ? "bg-[#FCF1ED]/70 text-[#C4512B]" : "text-[#292E2C]"
+          }`}
+        >
+          <span className="text-[14px] font-bold">Filters</span>
+
+          {activeFilterCount > 0 ? (
+            <div className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#C4512B] text-[10px] font-black text-white">
+              {activeFilterCount}
+            </div>
+          ) : (
+            <span className="relative w-4 h-4">
+              <Image src="/svg/filter.svg" alt="Filters" fill sizes="16px" unoptimized />
+            </span>
+          )}
+        </button>
+      </div>
     </div>
   );
 };

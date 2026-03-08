@@ -42,13 +42,15 @@ export default function SearchHomePage({ recentSearches, recentProducts }) {
                 rel="noreferrer"
                 className="w-[112px] h-[249px] flex-shrink-0"
               >
-                <div className="relative  w-[112px] h-[149px] mb-2">
+                <div className="relative w-[112px] h-[149px] mb-2">
                   <Image
                     src={product.featured_image}
                     alt={product.title}
                     fill
                     // sizes="112px"
                     className="rounded-[8px]"
+                    unoptimized
+                    loading="eager"
                   />
                 </div>
 
