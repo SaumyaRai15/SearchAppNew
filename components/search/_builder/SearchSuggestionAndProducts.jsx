@@ -3,8 +3,12 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Configure, Index, InstantSearch, useHits, useInstantSearch } from "react-instantsearch";
-import { SearchSuggestionSkeleton } from "@/components/Loaders/SearchSuggestionSkeleton";
-import { setPreviewProductsCache, typesenseSearchClient, TYPESENSE_INDEXES } from "@/lib/typesenseInstantsearch";
+import { SearchSuggestionSkeleton } from "../../Loaders/SearchSuggestionSkeleton";
+import {
+  setPreviewProductsCache,
+  typesenseSearchClient,
+  TYPESENSE_INDEXES,
+} from "../../../lib/typesenseInstantsearch";
 
 function SuggestionsStateBridge({ onChange }) {
   const { items } = useHits();

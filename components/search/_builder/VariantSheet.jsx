@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { useRef } from "react";
-import LoaderIcon from "@/components/Loaders/LoaderIcon";
+import LoaderIcon from "../../Loaders/LoaderIcon";
 
 const formatPrice = (n) => (n != null && !Number.isNaN(n) ? `${Math.round(n)}` : null);
 

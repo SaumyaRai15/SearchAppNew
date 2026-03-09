@@ -14,8 +14,12 @@ import {
   useSortBy,
 } from "react-instantsearch";
 import { useSearchParams } from "next/navigation";
-import { useCartStore } from "@/store/useCartStore";
-import { getPreviewProductsCache, typesenseSearchClient, TYPESENSE_INDEXES } from "@/lib/typesenseInstantsearch";
+import { useCartStore } from "../../../store/useCartStore";
+import {
+  getPreviewProductsCache,
+  typesenseSearchClient,
+  TYPESENSE_INDEXES,
+} from "../../../lib/typesenseInstantsearch";
 import { formatCategoryLabel } from "../../../constants/categoryUtils";
 import SortAndFilterBar from "./SortAndFilterBar";
 import { SearchResultsSkeleton } from "../../Loaders/SearchResultsSkeleton";
