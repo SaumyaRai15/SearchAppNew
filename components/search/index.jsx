@@ -14,7 +14,7 @@ const replaceSearchUrl = (search) => {
   window.history.replaceState(window.history.state, "", nextUrl);
 };
 
-export default function SearchIndex() {
+const SearchIndex = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -128,4 +128,6 @@ export default function SearchIndex() {
       )}
     </div>
   );
-}
+};
+
+export default SearchIndex;
