@@ -299,10 +299,6 @@ const SearchResultsContent = ({ query }) => {
     !hasLoadedOnce && filteredCachedPreviewProducts.length > 0 ? filteredCachedPreviewProducts : filteredProducts;
   const shouldShowSkeleton = !hasLoadedOnce && isSearchLoading && filteredCachedPreviewProducts.length === 0;
 
-  console.log("hasLoadedOnce: ", hasLoadedOnce);
-  console.log("isSearchLoading: ", isSearchLoading);
-  console.log("filteredCachedPreviewProducts: ", filteredCachedPreviewProducts);
-
   const handleIncrease = async (id) => {
     await addToCart(id);
   };
