@@ -1,14 +1,17 @@
 "use client";
 
 import Image from "next/image";
+import LoaderIcon from "../../Loaders/LoaderIcon";
 
-export default function SearchBar({ searchValue, onChange, onClear, onSubmit, onBack, isResultsOpen }) {
+export default function SearchBar({ searchValue, onChange, onClear, onSubmit, onBack, isResultsOpen, isLoading }) {
   const handleKeyDown = (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
       onSubmit?.();
     }
   };
+  const clearIconSrc = isResultsOpen ? "/svg/cross-circle-gray.svg" : "/svg/cross.svg";
+  const clearIconSizeClass = isResultsOpen ? "w-[20.5px] h-[20.5px]" : "w-[12px] h-[12px]";
 
   return (
     <div
@@ -36,20 +39,36 @@ export default function SearchBar({ searchValue, onChange, onClear, onSubmit, on
               className="w-full text-base outline-none border-none bg-transparent placeholder:text-gray-400 pr-6"
             />
 
-            {searchValue && onClear && (
-              <button
-                type="button"
-                onClick={onClear}
-                className={`absolute right-0 top-1/2 -translate-y-1/2  ${isResultsOpen ? "w-[20.5px] h-[20.5px]" : "w-[12px] h-[12px]"}`}
-                aria-label="Clear search"
-              >
-                <Image
-                  src={isResultsOpen ? "/svg/cross-circle-gray.svg" : "/svg/cross.svg"}
-                  alt="Clear search"
-                  fill
-                  unoptimized
-                />
-              </button>
+            {searchValue && (
+              <>
+                {isLoading ? (
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                    <LoaderIcon
+                      width={isResultsOpen ? 20.5 : 12}
+                      height={isResultsOpen ? 20.5 : 12}
+                      stroke="#6B7280"
+                      color="#6B7280"
+                    />
+                  </div>
+                ) : (
+                  onClear && (
+                    <button
+                      type="button"
+                      onClick={onClear}
+                      className={`absolute right-0 top-1/2 -translate-y-1/2 ${clearIconSizeClass}`}
+                      aria-label="Clear search"
+                    >
+                      <Image
+                        key={clearIconSrc}
+                        src={clearIconSrc}
+                        alt="Clear search"
+                        fill
+                        unoptimized
+                      />
+                    </button>
+                  )
+                )}
+              </>
             )}
 
             <span className="pointer-events-none absolute left-0 right-0 bottom-0 h-[2px] rounded-full" />

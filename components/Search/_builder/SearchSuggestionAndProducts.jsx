@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Configure, Index, InstantSearch, useHits, useInstantSearch } from "react-instantsearch";
-import { SearchSuggestionSkeleton } from "../../Loaders/SearchSuggestionSkeleton";
 import {
   setPreviewProductsCache,
   typesenseSearchClient,
@@ -20,17 +19,40 @@ function SuggestionsStateBridge({ onChange }) {
   return null;
 }
 
-function SearchSuggestionAndProductsContent({ query, onSuggestionClick }) {
-  const { items: products } = useHits();
-  const { status } = useInstantSearch();
+function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadingChange }) {
+  const { items: products, status } = useHits();
+  const { status: instantSearchStatus } = useInstantSearch();
   const [suggestions, setSuggestions] = useState([]);
+  const [displayedSuggestions, setDisplayedSuggestions] = useState([]);
+  const [displayedProducts, setDisplayedProducts] = useState([]);
 
-  const isLoading = Boolean(query) && (status === "loading" || status === "stalled");
+  const isLoading =
+    Boolean(query) &&
+    (status === "loading" ||
+      status === "stalled" ||
+      instantSearchStatus === "loading" ||
+      instantSearchStatus === "stalled");
+
+  useEffect(() => {
+    onLoadingChange?.(isLoading);
+  }, [isLoading, onLoadingChange]);
 
   useEffect(() => {
     if (!query || products.length === 0) return;
     setPreviewProductsCache(query, products);
   }, [products, query]);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    setDisplayedSuggestions(suggestions);
+    setDisplayedProducts(products);
+  }, [isLoading, products, suggestions]);
+
+  const hasDisplayedResults = displayedSuggestions.length > 0 || displayedProducts.length > 0;
+  const shouldShowPreviousResults = isLoading && hasDisplayedResults;
+  const visibleSuggestions = shouldShowPreviousResults ? displayedSuggestions : suggestions;
+  const visibleProducts = shouldShowPreviousResults ? displayedProducts : products;
 
   return (
     <>
@@ -43,18 +65,11 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick }) {
         </Index>
       ) : null}
 
-      {isLoading ? (
-        <SearchSuggestionSkeleton />
-      ) : suggestions.length === 0 && products.length === 0 && query ? (
-        <div className="mt-2 bg-white py-16 flex flex-col items-center gap-1">
-          <p className="text-[14px] text-[#7B818C]">0 Matching Results for</p>
-          <p className="text-[16px] text-[#292E2C] font-bold">&ldquo;{query}&rdquo;</p>
-        </div>
-      ) : (
+      {visibleSuggestions.length > 0 || visibleProducts.length > 0 ? (
         <div className="mt-2 bg-white">
-          {suggestions.length > 0 && (
+          {visibleSuggestions.length > 0 && (
             <div className="bg-white">
-              {suggestions.slice(0, 5).map((item) => (
+              {visibleSuggestions.slice(0, 5).map((item) => (
                 <button
                   key={item.id}
                   type="button"
@@ -71,9 +86,9 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick }) {
             </div>
           )}
 
-          {products.length > 0 && (
+          {visibleProducts.length > 0 && (
             <div className="bg-white">
-              {products.map((product) => (
+              {visibleProducts.map((product) => (
                 <div
                   key={product.id}
                   className="py-3 flex items-center gap-3 border-b border-gray-100 last:border-b-0"
@@ -91,12 +106,12 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick }) {
             </div>
           )}
         </div>
-      )}
+      ) : null}
     </>
   );
 }
 
-export default function SearchSuggestionAndProducts({ searchValue, onSuggestionClick }) {
+export default function SearchSuggestionAndProducts({ searchValue, onSuggestionClick, onLoadingChange }) {
   const query = searchValue.trim();
 
   if (!query) {
@@ -105,7 +120,11 @@ export default function SearchSuggestionAndProducts({ searchValue, onSuggestionC
 
   return (
     <InstantSearch searchClient={typesenseSearchClient} indexName={TYPESENSE_INDEXES.PRODUCTS}>
-      <SearchSuggestionAndProductsContent query={query} onSuggestionClick={onSuggestionClick} />
+      <SearchSuggestionAndProductsContent
+        query={query}
+        onSuggestionClick={onSuggestionClick}
+        onLoadingChange={onLoadingChange}
+      />
     </InstantSearch>
   );
 }

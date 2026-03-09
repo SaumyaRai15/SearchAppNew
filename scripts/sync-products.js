@@ -99,8 +99,39 @@ function isoToUnix(ts) {
   return Math.floor(new Date(ts).getTime() / 1000);
 }
 
+function normalizeTitle(title = "") {
+  let wordIndex = 0;
+
+  return title
+    .split(/(\s+)/)
+    .map((token) => {
+      if (!token.trim()) {
+        return token;
+      }
+
+      if (wordIndex === 0) {
+        wordIndex += 1;
+        return token;
+      }
+
+      wordIndex += 1;
+
+      const uppercaseWordMatch = token.match(/^([^A-Za-z]*)([A-Z]+)([^A-Za-z]*)$/);
+      if (!uppercaseWordMatch) {
+        return token;
+      }
+
+      const [, prefix, word, suffix] = uppercaseWordMatch;
+      return `${prefix}${word.charAt(0)}${word.slice(1).toLowerCase()}${suffix}`;
+    })
+    .join("");
+}
+
+
+
 function transformProduct(product) {
   const attrs = product.attributes;
+  const normalizedTitle = normalizeTitle(attrs.title || "");
 
   const collections = [];
   const categories = new Set();
@@ -123,7 +154,7 @@ function transformProduct(product) {
     .filter((c) => c.attributes?.displayTitle)
     .map((c) => c.attributes.displayTitle.toLowerCase());
 
-  const titleLower = (attrs.title || "").toLowerCase();
+  const titleLower = normalizedTitle.toLowerCase();
 
   const audience = [];
   if (titleLower.includes("men")) audience.push("men");
@@ -139,7 +170,7 @@ function transformProduct(product) {
   return {
     id: product.id,
     product_id: attrs.shopifyProductId,
-    title: attrs.title,
+    title: normalizedTitle,
     subtitle: attrs.subtitle || "",
     url: attrs.url,
     featured_image: featured,

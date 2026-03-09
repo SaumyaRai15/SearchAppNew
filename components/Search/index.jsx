@@ -26,6 +26,7 @@ const SearchIndex = () => {
 
   const [searchValue, setSearchValue] = useState(initialQ);
   const [isResultsOpen, setIsResultsOpen] = useState(!!initialQ);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
 
   const refreshHomePageData = () => {
     try {
@@ -106,22 +107,33 @@ const SearchIndex = () => {
     <div className={`min-h-screen p-5 font-satoshi ${searchValue ? "bg-white" : "bg-gray-100"}`}>
       <SearchBar
         searchValue={searchValue}
-        onChange={setSearchValue}
+        onChange={(value) => {
+          setSearchValue(value);
+          if (!value) {
+            setIsSearchLoading(false);
+          }
+        }}
         onClear={() => {
           setSearchValue("");
           setIsResultsOpen(false);
+          setIsSearchLoading(false);
           replaceSearchUrl("");
         }}
         onSubmit={handleSubmitSearch}
         onBack={handleBack}
         isResultsOpen={isResultsOpen}
+        isLoading={isSearchLoading}
       />
 
       {searchValue ? (
         isResultsOpen ? (
           <SearchResults query={resultsQuery} />
         ) : (
-          <SearchSuggestionAndProducts searchValue={searchValue} onSuggestionClick={handleSuggestionClick} />
+          <SearchSuggestionAndProducts
+            searchValue={searchValue}
+            onSuggestionClick={handleSuggestionClick}
+            onLoadingChange={setIsSearchLoading}
+          />
         )
       ) : (
         <SearchHomePage recentSearches={recentSearches} recentProducts={recentProducts} />
