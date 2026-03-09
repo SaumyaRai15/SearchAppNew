@@ -27,6 +27,8 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
   const [suggestions, setSuggestions] = useState([]);
   const [displayedSuggestions, setDisplayedSuggestions] = useState([]);
   const [displayedProducts, setDisplayedProducts] = useState([]);
+  const [shouldRenderDropdown, setShouldRenderDropdown] = useState(false);
+  const [isDropdownVisible, setIsDropdownVisible] = useState(false);
 
   const isLoading =
     Boolean(query) &&
@@ -55,6 +57,33 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
   const shouldShowPreviousResults = isLoading && hasDisplayedResults;
   const visibleSuggestions = shouldShowPreviousResults ? displayedSuggestions : suggestions;
   const visibleProducts = shouldShowPreviousResults ? displayedProducts : products;
+  const hasVisibleResults = visibleSuggestions.length > 0 || visibleProducts.length > 0;
+
+  useEffect(() => {
+    let animationFrame;
+    let hideTimeout;
+
+    if (hasVisibleResults) {
+      setShouldRenderDropdown(true);
+      animationFrame = window.requestAnimationFrame(() => {
+        setIsDropdownVisible(true);
+      });
+    } else {
+      setIsDropdownVisible(false);
+      hideTimeout = window.setTimeout(() => {
+        setShouldRenderDropdown(false);
+      }, 1000);
+    }
+
+    return () => {
+      if (animationFrame) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+      if (hideTimeout) {
+        window.clearTimeout(hideTimeout);
+      }
+    };
+  }, [hasVisibleResults]);
 
   return (
     <>
@@ -67,8 +96,12 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
         </Index>
       ) : null}
 
-      {visibleSuggestions.length > 0 || visibleProducts.length > 0 ? (
-        <div className="mt-2 bg-white">
+      {shouldRenderDropdown ? (
+        <div
+          className={`mt-2 overflow-hidden bg-white transform-gpu transition-all duration-1000 ease-out ${
+            isDropdownVisible ? "translate-y-0 scale-100 opacity-100" : "-translate-y-2 scale-[0.98] opacity-0"
+          }`}
+        >
           {visibleSuggestions.length > 0 && (
             <div className="bg-white">
               {visibleSuggestions.slice(0, 5).map((item) => (
