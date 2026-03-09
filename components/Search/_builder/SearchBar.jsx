@@ -29,14 +29,14 @@ export default function SearchBar({ searchValue, onChange, onClear, onSubmit, on
         >
           <Image src="/svg/chevron-left.svg" alt="Go back" fill unoptimized />
         </button>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="relative">
             <input
               value={searchValue}
               onChange={(e) => onChange?.(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Search"
-              className="w-full text-base outline-none border-none bg-transparent placeholder:text-gray-400 pr-6"
+              placeholder="Search..."
+              className="w-[250px] min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[16px] leading-[24px] outline-none border-none bg-transparent placeholder:text-gray-400 pr-6"
             />
 
             {searchValue && (
@@ -58,13 +58,7 @@ export default function SearchBar({ searchValue, onChange, onClear, onSubmit, on
                       className={`absolute right-0 top-1/2 -translate-y-1/2 ${clearIconSizeClass}`}
                       aria-label="Clear search"
                     >
-                      <Image
-                        key={clearIconSrc}
-                        src={clearIconSrc}
-                        alt="Clear search"
-                        fill
-                        unoptimized
-                      />
+                      <Image key={clearIconSrc} src={clearIconSrc} alt="Clear search" fill unoptimized />
                     </button>
                   )
                 )}

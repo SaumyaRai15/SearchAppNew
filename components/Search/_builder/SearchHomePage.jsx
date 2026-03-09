@@ -1,7 +1,8 @@
 import Image from "next/image";
 import { RecentSearchesSkeleton, RecentProductsSkeleton } from "../../Loaders/SearchHomePageSkeleton";
+import Link from "next/link";
 
-export default function SearchHomePage({ recentSearches, recentProducts }) {
+export default function SearchHomePage({ recentSearches, recentProducts, onRecentSearchClick }) {
   return (
     <>
       {/* Recent Searches */}
@@ -13,12 +14,14 @@ export default function SearchHomePage({ recentSearches, recentProducts }) {
 
           <div className="flex flex-wrap gap-2">
             {recentSearches.map((item) => (
-              <div
+              <button
                 key={item}
+                type="button"
+                onClick={() => onRecentSearchClick?.(item)}
                 className="bg-white px-[8px] text-[#4B4D52] py-2 rounded-[4px] leading-4 text-[14px] tracking-[0.23px]"
               >
                 {item}
-              </div>
+              </button>
             ))}
           </div>
         </>
@@ -35,11 +38,12 @@ export default function SearchHomePage({ recentSearches, recentProducts }) {
 
           <div className="flex gap-4 overflow-x-auto h-[249px]">
             {recentProducts.map((product) => (
-              <a
+              <Link
                 key={product.id}
                 href={`https://nathabit.in/products/${product.url}`}
                 target="_blank"
                 rel="noreferrer"
+                prefetch={false}
                 className="w-[112px] h-[249px] flex-shrink-0"
               >
                 <div className="relative w-[112px] h-[149px] mb-2">
@@ -70,20 +74,11 @@ export default function SearchHomePage({ recentSearches, recentProducts }) {
                     </span>
                   )}
                 </div>
-              </a>
+              </Link>
             ))}
           </div>
         </>
       ) : null}
-
-      {/* Explore */}
-      <h4 className="mt-8 mb-3 font-medium">Explore</h4>
-
-      <div className="grid grid-cols-3 gap-4">
-        {Array.from({ length: 9 }).map((_, index) => (
-          <div key={index} className="h-[88px] w-[100px] bg-gray-200 rounded-[4px]" />
-        ))}
-      </div>
     </>
   );
 }

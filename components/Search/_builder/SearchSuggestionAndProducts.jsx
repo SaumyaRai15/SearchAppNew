@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Configure, Index, InstantSearch, useHits, useInstantSearch } from "react-instantsearch";
 import {
@@ -8,6 +9,7 @@ import {
   typesenseSearchClient,
   TYPESENSE_INDEXES,
 } from "../../../lib/typesenseInstantsearch";
+import { addToRecentlyViewed } from "../../../utils/helpers/recentlyViewed";
 
 function SuggestionsStateBridge({ onChange }) {
   const { items } = useHits();
@@ -89,19 +91,24 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
           {visibleProducts.length > 0 && (
             <div className="bg-white">
               {visibleProducts.map((product) => (
-                <div
+                <Link
                   key={product.id}
+                  href={`https://nathabit.in/products/${product.url}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  prefetch={false}
+                  onClick={() => addToRecentlyViewed(product)}
                   className="py-3 flex items-center gap-3 border-b border-gray-100 last:border-b-0"
                 >
-                  <div className="w-[32px] h-[49px] rounded-[4px] overflow-hidden flex-shrink-0 bg-gray-100">
-                    <img src={product.featured_image} alt={product.title} className="w-full h-full object-cover" />
+                  <div className="relative w-[32px] h-[49px] rounded-[4px] overflow-hidden flex-shrink-0 bg-gray-100">
+                    <Image src={product.featured_image} alt={product.title} fill />
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="text-xs text-gray-500 mb-0.5 line-clamp-1">{product.subtitle}</div>
                     <div className="text-sm text-gray-900 font-medium leading-5 line-clamp-2">{product.title}</div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}

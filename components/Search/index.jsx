@@ -62,14 +62,31 @@ const SearchIndex = () => {
     initialQ ? { q: initialQ, filter_by: initialFilterBy || undefined } : null,
   );
 
-  const handleSubmitSearch = () => {
-    const query = searchValue.trim();
+  const clearSearchState = () => {
+    setSearchValue("");
+    setResultsQuery(null);
+    setIsResultsOpen(false);
+    setIsSearchLoading(false);
+    replaceSearchUrl("");
+  };
+
+  const openSearchResults = (nextQuery) => {
+    const query = nextQuery.trim();
     if (!query) return;
 
     addToRecentSearches(query);
+    setSearchValue(query);
     setResultsQuery({ q: query });
     setIsResultsOpen(true);
     replaceSearchUrl(`?q=${encodeURIComponent(query)}`);
+  };
+
+  const handleSubmitSearch = () => {
+    openSearchResults(searchValue);
+  };
+
+  const handleRecentSearchClick = (query) => {
+    openSearchResults(query);
   };
 
   const handleSuggestionClick = (suggestion) => {
@@ -109,16 +126,11 @@ const SearchIndex = () => {
         searchValue={searchValue}
         onChange={(value) => {
           setSearchValue(value);
-          if (!value) {
-            setIsSearchLoading(false);
+          if (!value.trim()) {
+            clearSearchState();
           }
         }}
-        onClear={() => {
-          setSearchValue("");
-          setIsResultsOpen(false);
-          setIsSearchLoading(false);
-          replaceSearchUrl("");
-        }}
+        onClear={clearSearchState}
         onSubmit={handleSubmitSearch}
         onBack={handleBack}
         isResultsOpen={isResultsOpen}
@@ -136,7 +148,11 @@ const SearchIndex = () => {
           />
         )
       ) : (
-        <SearchHomePage recentSearches={recentSearches} recentProducts={recentProducts} />
+        <SearchHomePage
+          recentSearches={recentSearches}
+          recentProducts={recentProducts}
+          onRecentSearchClick={handleRecentSearchClick}
+        />
       )}
     </div>
   );
