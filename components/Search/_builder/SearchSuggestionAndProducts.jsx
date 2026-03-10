@@ -97,13 +97,13 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
       ) : null}
 
       {shouldRenderDropdown ? (
-        <div
-          className={`mt-2 overflow-hidden bg-white transform-gpu transition-all duration-1000 ease-out ${
-            isDropdownVisible ? "translate-y-0 scale-100 opacity-100" : "-translate-y-2 scale-[0.98] opacity-0"
-          }`}
-        >
+        <div className="mt-2 overflow-hidden bg-white">
           {visibleSuggestions.length > 0 && (
-            <div className="bg-white">
+            <div
+              className={`bg-white transform-gpu transition-all duration-300 ease-out ${
+                isDropdownVisible ? "translate-y-0 opacity-100" : "-translate-y-[100px] opacity-0"
+              }`}
+            >
               {visibleSuggestions.slice(0, 5).map((item) => (
                 <button
                   key={item.id}
@@ -112,7 +112,7 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
                   onClick={() => onSuggestionClick?.(item)}
                 >
                   <div className="relative w-[14px] h-[14px]">
-                    <Image src="/svg/search-gray.svg" alt="Search" fill unoptimized />
+                    <Image src="/svg/search-gray.svg" alt="Search" fill sizes="14px" unoptimized />
                   </div>
 
                   <span className="text-sm text-gray-800">{item.label}</span>
@@ -122,8 +122,12 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
           )}
 
           {visibleProducts.length > 0 && (
-            <div className="bg-white">
-              {visibleProducts.map((product) => (
+            <div
+              className={`bg-white transform-gpu transition-all duration-300 ease-out delay-75 ${
+                isDropdownVisible ? "translate-y-0 opacity-100" : "translate-y-[100px] opacity-0"
+              }`}
+            >
+              {visibleProducts.map((product, index) => (
                 <Link
                   key={product.id}
                   href={`https://nathabit.in/products/${product.url}`}
@@ -133,8 +137,13 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
                   onClick={() => addToRecentlyViewed(product)}
                   className="py-3 flex items-center gap-3 border-b border-gray-100 last:border-b-0"
                 >
-                  <div className="relative w-[32px] h-[49px] rounded-[4px] overflow-hidden flex-shrink-0 bg-gray-100">
-                    <Image src={product.featured_image} alt={product.title} fill />
+                  <div
+                    className={`relative w-[32px] h-[49px] rounded-[4px] overflow-hidden flex-shrink-0 bg-gray-100 transition-opacity duration-500 ease-out ${
+                      isDropdownVisible ? "opacity-100" : "opacity-0"
+                    }`}
+                    style={{ transitionDelay: `${1 * 80}ms` }}
+                  >
+                    <Image src={product.featured_image} alt={product.title} fill sizes="32px" />
                   </div>
 
                   <div className="flex-1 min-w-0">

@@ -309,7 +309,7 @@ const SearchResultsContent = ({ query }) => {
           : "";
 
   return (
-    <div className="relative min-h-screen bg-white pb-24">
+    <div className="relative max-h-full bg-white pb-[48px]">
       <QueryAndSortSync queryText={searchText} sortBy={sortBy} />
 
       <Configure filters={combinedFilterBy} hitsPerPage={10} maxValuesPerFacet={200} />
