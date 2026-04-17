@@ -1,6 +1,9 @@
 import Typesense from "typesense";
 import axios from "axios";
 import dotenv from "dotenv";
+import os from "node:os";
+import path from "node:path";
+import { parseExcel } from "./parseExcel.js";
 
 dotenv.config();
 
@@ -19,6 +22,13 @@ const client = new Typesense.Client({
   apiKey: process.env.TYPESENSE_ADMIN_KEY,
   connectionTimeoutSeconds: 10,
 });
+
+const excelFilePath =
+  process.env.EXCEL_FILE_PATH || path.join(os.homedir(), "Downloads", "D2C SEO - Search Keyword Mapping.xlsx");
+console.log("excelFilePath: ", excelFilePath);
+const excelMap = parseExcel(excelFilePath);
+console.log("excelMap", excelMap);
+console.log("excelMap length", Object.keys(excelMap).length);
 
 /* -----------------------------
    CMS Query
@@ -65,6 +75,7 @@ const PRODUCTS_QUERY = `
                 price
                 compareAtPrice
                 shopifyVariantId
+                sku
                 title
                 measurementUnit
                 measurementValue
@@ -127,8 +138,6 @@ function normalizeTitle(title = "") {
     .join("");
 }
 
-
-
 function transformProduct(product) {
   const attrs = product.attributes;
   const normalizedTitle = normalizeTitle(attrs.title || "");
@@ -167,9 +176,26 @@ function transformProduct(product) {
 
   const variants = attrs.variants.data.map((v) => v);
 
+  // 🔥 GET SKU (first variant or fallback)
+  const sku = variants.find((v) => v.attributes?.sku)?.attributes?.sku || variants[0]?.attributes?.sku || null;
+
+  // 🔥 GET EXCEL DATA
+  const excel = sku ? excelMap[sku] || {} : {};
+
   return {
     id: product.id,
     product_id: attrs.shopifyProductId,
+
+    sku: sku,
+    ingredients: excel.ingredients || [],
+    additional_ingredients: excel.additional_ingredients || [],
+    gender: excel.gender || [],
+    skin_hair_type: excel.skin_hair_type || [],
+    seasonality: excel.seasonality || [],
+    target_age_group: excel.target_age_group || [],
+    benefits: excel.benefits || [],
+    safety_callouts: excel.safety_callouts || [],
+
     title: normalizedTitle,
     subtitle: attrs.subtitle || "",
     url: attrs.url,
