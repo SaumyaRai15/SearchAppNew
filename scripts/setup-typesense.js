@@ -17,7 +17,7 @@ const client = new Typesense.Client({
 
 //delete collections
 async function resetCollections() {
-  const collections = ["products", "search_suggestions", "product_popularity"];
+  const collections = ["products", "combo_products", "search_suggestions", "product_popularity"];
 
   for (const name of collections) {
     try {
@@ -38,6 +38,7 @@ async function createCollections() {
     fields: [
       { name: "id", type: "string" },
       { name: "title", type: "string" },
+      { name: "short_code", type: "string", optional: true },
       { name: "subtitle", type: "string", optional: true },
       { name: "url", type: "string", optional: true },
       { name: "featured_image", type: "string", optional: true },
@@ -65,6 +66,34 @@ async function createCollections() {
   });
 
   console.log("Created products collection");
+
+  // COMBO PRODUCTS
+  await client.collections().create({
+    name: "combo_products",
+    enable_nested_fields: true,
+    fields: [
+      { name: "id", type: "string" },
+      { name: "title", type: "string" },
+      { name: "short_code", type: "string", optional: true },
+      { name: "subtitle", type: "string", optional: true },
+      { name: "url", type: "string", optional: true },
+      { name: "featured_image", type: "string", optional: true },
+      { name: "rating", type: "float", optional: true },
+      { name: "collections", type: "string[]", facet: true, optional: true },
+      { name: "categories", type: "string[]", facet: true, optional: true },
+      { name: "concerns", type: "string[]", facet: true, optional: true },
+      { name: "sku", type: "string", optional: true },
+      { name: "audience", type: "string[]", facet: true, optional: true },
+      { name: "product_type", type: "string[]", facet: true, optional: true },
+      { name: "price", type: "float", facet: true, optional: true },
+      { name: "compare_at_price", type: "float", facet: true, optional: true },
+      { name: "variants", type: "object[]", optional: true, facet: true },
+      { name: "updated_at", type: "int64" },
+    ],
+    default_sorting_field: "updated_at",
+  });
+
+  console.log("Created combo_products collection");
 
   // SEARCH SUGGESTIONS
   await client.collections().create({

@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import os from "node:os";
 import path from "node:path";
 import { parseExcel } from "./parseExcel.js";
+import { parseComboProductShortCodes, parseSingleProductShortCodes } from "./parseShortCodes.js";
 
 dotenv.config();
 
@@ -25,10 +26,11 @@ const client = new Typesense.Client({
 
 const excelFilePath =
   process.env.EXCEL_FILE_PATH || path.join(os.homedir(), "Downloads", "D2C SEO - Search Keyword Mapping.xlsx");
-console.log("excelFilePath: ", excelFilePath);
 const excelMap = parseExcel(excelFilePath);
-console.log("excelMap", excelMap);
-console.log("excelMap length", Object.keys(excelMap).length);
+const singleProductShortCodePath = path.join(os.homedir(), "Downloads", "single_product_sku.csv");
+const comboProductShortCodePath = path.join(os.homedir(), "Downloads", "combo_products_with_different_skus.numbers");
+const singleProductShortCodeMap = parseSingleProductShortCodes(singleProductShortCodePath);
+const comboProductShortCodeMap = parseComboProductShortCodes(comboProductShortCodePath);
 
 /* -----------------------------
    CMS Query
@@ -138,7 +140,11 @@ function normalizeTitle(title = "") {
     .join("");
 }
 
-function transformProduct(product) {
+function getProductSku(variants) {
+  return variants.find((v) => v.attributes?.sku)?.attributes?.sku || variants[0]?.attributes?.sku || null;
+}
+
+function transformProduct(product, { shortCode, includeExcelData = true } = {}) {
   const attrs = product.attributes;
   const normalizedTitle = normalizeTitle(attrs.title || "");
 
@@ -175,28 +181,16 @@ function transformProduct(product) {
   });
 
   const variants = attrs.variants.data.map((v) => v);
-
-  // 🔥 GET SKU (first variant or fallback)
-  const sku = variants.find((v) => v.attributes?.sku)?.attributes?.sku || variants[0]?.attributes?.sku || null;
-
-  // 🔥 GET EXCEL DATA
-  const excel = sku ? excelMap[sku] || {} : {};
+  const sku = getProductSku(variants);
+  const excel = includeExcelData && sku ? excelMap[sku] || {} : {};
 
   return {
     id: product.id,
     product_id: attrs.shopifyProductId,
 
     sku: sku,
-    ingredients: excel.ingredients || [],
-    additional_ingredients: excel.additional_ingredients || [],
-    gender: excel.gender || [],
-    skin_hair_type: excel.skin_hair_type || [],
-    seasonality: excel.seasonality || [],
-    target_age_group: excel.target_age_group || [],
-    benefits: excel.benefits || [],
-    safety_callouts: excel.safety_callouts || [],
-
     title: normalizedTitle,
+    short_code: shortCode || normalizedTitle,
     subtitle: attrs.subtitle || "",
     url: attrs.url,
     featured_image: featured,
@@ -210,6 +204,18 @@ function transformProduct(product) {
     variants,
     price: prices.length ? Math.min(...prices) : null,
     updated_at: isoToUnix(attrs.updatedAt),
+    ...(includeExcelData
+      ? {
+          ingredients: excel.ingredients || [],
+          additional_ingredients: excel.additional_ingredients || [],
+          gender: excel.gender || [],
+          skin_hair_type: excel.skin_hair_type || [],
+          seasonality: excel.seasonality || [],
+          target_age_group: excel.target_age_group || [],
+          benefits: excel.benefits || [],
+          safety_callouts: excel.safety_callouts || [],
+        }
+      : {}),
   };
 }
 
@@ -236,12 +242,37 @@ async function syncProducts() {
   const products = res.data.data.products.data;
 
   console.log("Transforming products...");
-  const docs = products.map(transformProduct);
+  const docs = products.map((product) => {
+    const variants = product.attributes.variants.data.map((v) => v);
+    const sku = getProductSku(variants);
+    const isComboProduct = Boolean(sku && Object.hasOwn(comboProductShortCodeMap, sku));
+    const comboShortCode = isComboProduct ? comboProductShortCodeMap[sku] : "";
+    const shortCode =
+      (isComboProduct ? comboShortCode : sku ? singleProductShortCodeMap[sku] : "") || normalizeTitle(product.attributes.title || "");
 
-  console.log("Importing into Typesense...");
-  const result = await client.collections("products").documents().import(docs, { action: "upsert" });
+    return {
+      isComboProduct,
+      doc: transformProduct(product, {
+        shortCode,
+        includeExcelData: !isComboProduct,
+      }),
+    };
+  });
+  const productDocs = docs.filter((entry) => !entry.isComboProduct).map((entry) => entry.doc);
+  const comboDocs = docs.filter((entry) => entry.isComboProduct).map((entry) => entry.doc);
 
-  console.log("Done. Imported:", docs.length);
+  console.log("Importing products into Typesense...");
+  if (productDocs.length > 0) {
+    await client.collections("products").documents().import(productDocs, { action: "upsert" });
+  }
+
+  console.log("Importing combos into Typesense...");
+  if (comboDocs.length > 0) {
+    await client.collections("combo_products").documents().import(comboDocs, { action: "upsert" });
+  }
+
+  console.log("Done. Imported products:", productDocs.length);
+  console.log("Done. Imported combos:", comboDocs.length);
 }
 
 syncProducts().catch(console.error);

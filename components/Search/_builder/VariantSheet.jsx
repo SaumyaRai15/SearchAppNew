@@ -101,14 +101,16 @@ export default function VariantSheet({
                   {displayProduct.featured_image && (
                     <Image
                       src={displayProduct.featured_image}
-                      alt={displayProduct.title}
+                      alt={displayProduct.short_code || displayProduct.title}
                       fill
                       className="object-cover"
                     />
                   )}
                 </div>
                 <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-                  <p className="text-[16px] font-medium text-[#303133] leading-[24px]">{displayProduct.title}</p>
+                  <p className="text-[16px] font-medium text-[#303133] leading-[24px]">
+                    {displayProduct.short_code || displayProduct.title}
+                  </p>
                   {displayProduct.subtitle && (
                     <p className="text-[12px] text-[#7B818C] leading-[16px]">{displayProduct.subtitle}</p>
                   )}

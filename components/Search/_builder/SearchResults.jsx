@@ -134,6 +134,145 @@ function FacetCollector({ onUpdate }) {
   return null;
 }
 
+function ResultsList({ sectionTitle, items, quantities, onOpenVariantSheet, emptyMessage, showEmptyState }) {
+  if (items.length === 0 && !showEmptyState) {
+    return null;
+  }
+
+  return (
+    <>
+      {sectionTitle ? <div className="px-1 text-[12px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">{sectionTitle}</div> : null}
+      {items.length === 0 ? (
+        <div className="py-16 text-center text-sm text-gray-500">{emptyMessage}</div>
+      ) : (
+        items.map((product) => {
+          const hasVariants = product.variants?.length > 0;
+          const displayRating = getDisplayRating(product.rating);
+          const firstVariant = product.variants?.[0]?.attributes;
+          const totalVariantQty = hasVariants
+            ? product.variants.reduce((sum, v) => {
+                const vid = v.attributes?.shopifyVariantId;
+                return sum + (vid ? (quantities[vid] ?? 0) : 0);
+              }, 0)
+            : 0;
+
+          return (
+            <div key={product.id} className="flex gap-3 bg-white py-3 border-b border-gray-100">
+              <Link
+                href={`https://nathabit.in/products/${product.url}`}
+                prefetch={false}
+                target="_blank"
+                onClick={() => addToRecentlyViewed(product)}
+              >
+                <div className="relative w-[72px] h-[111px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                  <Image src={product.featured_image} alt={product.short_code || product.title} fill unoptimized loading="eager" />
+                </div>
+              </Link>
+              <div className="flex-1 flex flex-col min-w-0">
+                <div className="flex justify-between gap-3">
+                  <div className="flex flex-col gap-[2px]">
+                    <div className="text-[14px] text-[#292E2C] leading-[20px]">{product.short_code || product.title}</div>
+
+                    <div className="text-[12px] text-[#7B818C] leading-[16px]">{product.subtitle}</div>
+
+                    <div className="flex gap-x-2 mt-[6px]">
+                      <p className="text-[12px] leading-[16px] text-[#676B73] bg-[#F5F7FA] px-[4px]">
+                        {firstVariant?.measurementValue && firstVariant?.measurementUnit
+                          ? `${firstVariant.measurementValue}${firstVariant.measurementUnit}`
+                          : "1 unit"}
+                      </p>
+                      <div className="flex gap-x-2 bg-[#F5F7FA] px-[4px] rounded-[2px] w-fit">
+                        <StarRating rating={product.rating} />
+                        <p className="text-[12px] leading-[16px] text-[#676B73]">({displayRating})</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={`flex flex-col w-[72px] h-[58px] rounded-[8px] items-center flex-shrink-0 bg-[#FCF8F7]`}>
+                    {hasVariants && (
+                      <>
+                        {totalVariantQty === 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpenVariantSheet(product)}
+                            className="w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#F0C3B4] border bg-[#FCF1ED] text-[14px] leading-[20px] font-black text-[#C4512B]"
+                          >
+                            ADD
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onOpenVariantSheet(product)}
+                            className="flex items-center justify-around w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#C4512B] border text-[14px] leading-[20px] font-black bg-white text-[#C4512B]"
+                          >
+                            <span>{totalVariantQty}</span>
+                            <Image
+                              src="/svg/chevron-down-orange.svg"
+                              width={7}
+                              height={4}
+                              alt=""
+                              aria-hidden
+                              className="absolute right-[12px]"
+                            />
+                          </button>
+                        )}
+                        <p className="text-[10px]  leading-[12px] rounded-br-[8p] px-[8px] pt-[2px] pb-[4px] rounded-bl-[8px] font-medium bg-[#FCF8F7] text-[#C4512B]">
+                          {product.variants.length} {product.variants.length > 1 ? "Options" : "Option"}{" "}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-baseline gap-[2px] flex-wrap">
+                  {formatPrice(product.price) && (
+                    <p className="text-[10px] text-[#292E2C]">
+                      ₹<span className="text-[16px]">{formatPrice(product.price)}</span>
+                    </p>
+                  )}
+
+                  {product.compare_at_price && product.compare_at_price > product.price && (
+                    <>
+                      <p className="text-[10px] text-[#9DA6B2]">
+                        ₹
+                        <span className="text-[12px] leading-[10px]  line-through">{formatPrice(product.compare_at_price)}</span>
+                      </p>
+                      {getDiscountPercent(product.price, product.compare_at_price) != null && (
+                        <span className="text-[12px] leading-[20px] font-medium text-[#D13F44]">
+                          -{getDiscountPercent(product.price, product.compare_at_price)}%
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </>
+  );
+}
+
+function ComboResultsSection({ baseFilterBy, quantities, onOpenVariantSheet }) {
+  const { items: combos } = useHits();
+  const { status } = useInstantSearch();
+
+  return (
+    <div className="mt-6">
+      <Configure filters={baseFilterBy} hitsPerPage={5} />
+      <ResultsList
+        sectionTitle="Combos"
+        items={combos}
+        quantities={quantities}
+        onOpenVariantSheet={onOpenVariantSheet}
+        emptyMessage="No combos found for this search."
+        showEmptyState={status === "idle"}
+      />
+    </div>
+  );
+}
+
 const SearchResultsContent = ({ query }) => {
   // Support both string and suggestion object
   const searchText = typeof query === "string" ? query.trim() : query?.q?.trim() || "";
@@ -312,7 +451,7 @@ const SearchResultsContent = ({ query }) => {
     <div className="relative max-h-full bg-white pb-[48px]">
       <QueryAndSortSync queryText={searchText} sortBy={sortBy} />
 
-      <Configure filters={combinedFilterBy} hitsPerPage={10} maxValuesPerFacet={200} />
+      <Configure filters={combinedFilterBy} hitsPerPage={5} maxValuesPerFacet={200} />
 
       <Index indexName={TYPESENSE_INDEXES.PRODUCTS}>
         <Configure filters={baseFilterBy} hitsPerPage={1} maxValuesPerFacet={200} />
@@ -392,119 +531,22 @@ const SearchResultsContent = ({ query }) => {
               </div>
             )}
 
-            {displayProducts.map((product) => {
-              const hasVariants = product.variants?.length > 0;
-              const displayRating = getDisplayRating(product.rating);
-              // const quantity = quantities[product.id] ?? 0;
-              const totalVariantQty = hasVariants
-                ? product.variants.reduce((sum, v) => {
-                    const vid = v.attributes?.shopifyVariantId;
-                    return sum + (vid ? (quantities[vid] ?? 0) : 0);
-                  }, 0)
-                : 0;
+            <ResultsList
+              sectionTitle="Products"
+              items={displayProducts}
+              quantities={quantities}
+              onOpenVariantSheet={setVariantSheetProduct}
+              emptyMessage="No products found for this search."
+              showEmptyState={hasLoadedOnce && filteredProducts.length === 0}
+            />
 
-              return (
-                <div key={product.id} className="flex gap-3 bg-white py-3 border-b border-gray-100">
-                  <Link
-                    href={`https://nathabit.in/products/${product.url}`}
-                    prefetch={false}
-                    target="_blank"
-                    onClick={() => addToRecentlyViewed(product)}
-                  >
-                    <div className="relative w-[72px] h-[111px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                      <Image src={product.featured_image} alt={product.title} fill unoptimized loading="eager" />
-                    </div>
-                  </Link>
-                  <div className="flex-1 flex flex-col min-w-0">
-                    <div className="flex justify-between gap-3">
-                      <div className="flex flex-col gap-[2px]">
-                        <div className="text-[14px] text-[#292E2C] leading-[20px]">{product.title}</div>
-
-                        <div className="text-[12px] text-[#7B818C] leading-[16px]">{product.subtitle}</div>
-
-                        <div className="flex gap-x-2 mt-[6px]">
-                          <p className="text-[12px] leading-[16px] text-[#676B73] bg-[#F5F7FA] px-[4px]">
-                            {product.variants[0].attributes.measurementValue &&
-                            product.variants[0].attributes.measurementUnit
-                              ? `${product.variants[0].attributes.measurementValue}${product.variants[0].attributes.measurementUnit}`
-                              : "1 unit"}
-                          </p>
-                          <div className="flex gap-x-2 bg-[#F5F7FA] px-[4px] rounded-[2px] w-fit">
-                            <StarRating rating={product.rating} />
-                            <p className="text-[12px] leading-[16px] text-[#676B73]">({displayRating})</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div
-                        className={`flex flex-col w-[72px] h-[58px] rounded-[8px] items-center flex-shrink-0 bg-[#FCF8F7]`}
-                      >
-                        {hasVariants && (
-                          <>
-                            {totalVariantQty === 0 ? (
-                              <button
-                                type="button"
-                                onClick={() => setVariantSheetProduct(product)}
-                                className="w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#F0C3B4] border bg-[#FCF1ED] text-[14px] leading-[20px] font-black text-[#C4512B]"
-                              >
-                                ADD
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setVariantSheetProduct(product)}
-                                className="flex items-center justify-around w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#C4512B] border text-[14px] leading-[20px] font-black bg-white text-[#C4512B]"
-                              >
-                                <span>{totalVariantQty}</span>
-                                <Image
-                                  src="/svg/chevron-down-orange.svg"
-                                  width={7}
-                                  height={4}
-                                  alt=""
-                                  aria-hidden
-                                  className="absolute right-[12px]"
-                                />
-                              </button>
-                            )}
-                            <p className="text-[10px]  leading-[12px] rounded-br-[8p] px-[8px] pt-[2px] pb-[4px] rounded-bl-[8px] font-medium bg-[#FCF8F7] text-[#C4512B]">
-                              {product.variants.length} {product.variants.length > 1 ? "Options" : "Option"}{" "}
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="mt-2 flex items-baseline gap-[2px] flex-wrap">
-                      {formatPrice(product.price) && (
-                        <p className="text-[10px] text-[#292E2C]">
-                          ₹<span className="text-[16px]">{formatPrice(product.price)}</span>
-                        </p>
-                      )}
-
-                      {product.compare_at_price && product.compare_at_price > product.price && (
-                        <>
-                          <p className="text-[10px] text-[#9DA6B2]">
-                            ₹
-                            <span className="text-[12px] leading-[10px]  line-through">
-                              {formatPrice(product.compare_at_price)}
-                            </span>
-                          </p>
-                          {getDiscountPercent(product.price, product.compare_at_price) != null && (
-                            <span className="text-[12px] leading-[20px] font-medium text-[#D13F44]">
-                              -{getDiscountPercent(product.price, product.compare_at_price)}%
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-            {hasLoadedOnce && filteredProducts.length === 0 && (
-              <div className="py-16 text-center text-sm text-gray-500">No products found for this search.</div>
-            )}
+            <Index indexName={TYPESENSE_INDEXES.COMBO_PRODUCTS}>
+              <ComboResultsSection
+                baseFilterBy={baseFilterBy}
+                quantities={quantities}
+                onOpenVariantSheet={setVariantSheetProduct}
+              />
+            </Index>
           </div>
           {/* Sort & Filter bar */}
           <SortAndFilterBar
@@ -564,6 +606,7 @@ const SearchResults = ({ query }) => {
       indexName={TYPESENSE_INDEXES.PRODUCTS}
       initialUiState={{
         [TYPESENSE_INDEXES.PRODUCTS]: { query: searchText },
+        [TYPESENSE_INDEXES.COMBO_PRODUCTS]: { query: searchText },
       }}
     >
       <SearchResultsContent query={query} />

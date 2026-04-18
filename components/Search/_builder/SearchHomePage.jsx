@@ -49,7 +49,7 @@ export default function SearchHomePage({ recentSearches, recentProducts, onRecen
                 <div className="relative w-[112px] h-[149px] mb-2">
                   <Image
                     src={product.featured_image}
-                    alt={product.title}
+                    alt={product.short_code || product.title}
                     fill
                     // sizes="112px"
                     className="rounded-[8px]"
@@ -58,7 +58,7 @@ export default function SearchHomePage({ recentSearches, recentProducts, onRecen
                   />
                 </div>
 
-                <div className="text-[14px] leading-[20px] mb-1 line-clamp-2">{product.title}</div>
+                <div className="text-[14px] leading-[20px] mb-1 line-clamp-2">{product.short_code || product.title}</div>
 
                 <div className="text-[12px] leading-[16px] text-[#7B818C] mb-1 truncate">{product.subtitle}</div>
 
