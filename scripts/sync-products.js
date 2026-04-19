@@ -28,7 +28,7 @@ const excelFilePath =
   process.env.EXCEL_FILE_PATH || path.join(os.homedir(), "Downloads", "D2C SEO - Search Keyword Mapping.xlsx");
 const excelMap = parseExcel(excelFilePath);
 const singleProductShortCodePath = path.join(os.homedir(), "Downloads", "single_product_sku.csv");
-const comboProductShortCodePath = path.join(os.homedir(), "Downloads", "combo_products_with_different_skus.numbers");
+const comboProductShortCodePath = path.join(os.homedir(), "Downloads", "combo_products_with_different_skus.csv");
 const singleProductShortCodeMap = parseSingleProductShortCodes(singleProductShortCodePath);
 const comboProductShortCodeMap = parseComboProductShortCodes(comboProductShortCodePath);
 

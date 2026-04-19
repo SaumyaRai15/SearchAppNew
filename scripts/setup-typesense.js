@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const COMBO_OVERRIDE_TERMS = ["gift", "gifts", "kit", "kits", "set", "sets", "pack", "packs", "combo", "combos"];
+
 const client = new Typesense.Client({
   nodes: [
     {
@@ -127,9 +129,39 @@ async function createCollections() {
   console.log("Created product_popularity collection");
 }
 
+async function createOverrides() {
+  for (const term of COMBO_OVERRIDE_TERMS) {
+    //adding rule sets for both collections so that search query remains same for both collections
+    await client
+      .collections("combo_products")
+      .overrides()
+      .upsert(`combo-intent-${term}`, {
+        rule: {
+          query: term,
+          match: "contains",
+        },
+        remove_matched_tokens: true,
+      });
+    //adding rule sets for both collections so that search query remains same for both collections
+    await client
+      .collections("products")
+      .overrides()
+      .upsert(`combo-intent-${term}`, {
+        rule: {
+          query: term,
+          match: "contains",
+        },
+        remove_matched_tokens: true,
+      });
+  }
+
+  console.log("Created products and combo_products overrides");
+}
+
 async function run() {
   await resetCollections();
   await createCollections();
+  await createOverrides();
   console.log("Typesense setup complete");
 }
 

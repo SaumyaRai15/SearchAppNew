@@ -17,6 +17,7 @@ import { useSearchParams } from "next/navigation";
 import { useCartStore } from "../../../store/useCartStore";
 import {
   getPreviewProductsCache,
+  prefersComboResults,
   typesenseSearchClient,
   TYPESENSE_INDEXES,
 } from "../../../lib/typesenseInstantsearch";
@@ -32,12 +33,14 @@ const SORT_OPTIONS = [
   {
     id: "PRICE_LOW_HIGH",
     label: "Low to High",
-    indexName: TYPESENSE_INDEXES.PRODUCTS_PRICE_LOW_HIGH,
+    productIndexName: TYPESENSE_INDEXES.PRODUCTS_PRICE_LOW_HIGH,
+    comboIndexName: TYPESENSE_INDEXES.COMBO_PRODUCTS_PRICE_LOW_HIGH,
   },
   {
     id: "PRICE_HIGH_LOW",
     label: "High to low",
-    indexName: TYPESENSE_INDEXES.PRODUCTS_PRICE_HIGH_LOW,
+    productIndexName: TYPESENSE_INDEXES.PRODUCTS_PRICE_HIGH_LOW,
+    comboIndexName: TYPESENSE_INDEXES.COMBO_PRODUCTS_PRICE_HIGH_LOW,
   },
 ];
 
@@ -90,7 +93,7 @@ function QueryAndSortSync({ queryText, sortBy }) {
       { label: "Relevance", value: TYPESENSE_INDEXES.PRODUCTS },
       ...SORT_OPTIONS.map((option) => ({
         label: option.label,
-        value: option.indexName,
+        value: option.productIndexName,
       })),
     ],
   });
@@ -102,7 +105,8 @@ function QueryAndSortSync({ queryText, sortBy }) {
   }, [query, queryText, refineQuery]);
 
   useEffect(() => {
-    const nextIndexName = SORT_OPTIONS.find((option) => option.id === sortBy)?.indexName ?? TYPESENSE_INDEXES.PRODUCTS;
+    const nextIndexName =
+      SORT_OPTIONS.find((option) => option.id === sortBy)?.productIndexName ?? TYPESENSE_INDEXES.PRODUCTS;
 
     if (currentRefinement !== nextIndexName) {
       refineSort(nextIndexName);
@@ -132,6 +136,29 @@ function FacetCollector({ onUpdate }) {
   }, [categoryItems, collectionItems, onUpdate]);
 
   return null;
+}
+
+function ComboResultsCollector({ onUpdate }) {
+  const { items } = useHits();
+  const { status } = useInstantSearch();
+
+  useEffect(() => {
+    onUpdate({ items, status });
+  }, [items, onUpdate, status]);
+
+  return null;
+}
+
+function mergeFacetItems(...facetGroups) {
+  const mergedCounts = new Map();
+
+  facetGroups.flat().forEach(({ value, count }) => {
+    mergedCounts.set(value, (mergedCounts.get(value) || 0) + count);
+  });
+
+  return Array.from(mergedCounts.entries())
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
 }
 
 function ResultsList({ sectionTitle, items, quantities, onOpenVariantSheet, emptyMessage, showEmptyState }) {
@@ -254,13 +281,13 @@ function ResultsList({ sectionTitle, items, quantities, onOpenVariantSheet, empt
   );
 }
 
-function ComboResultsSection({ baseFilterBy, quantities, onOpenVariantSheet }) {
-  const { items: combos } = useHits();
-  const { status } = useInstantSearch();
+function ComboResultsSection({ combos, status, quantities, onOpenVariantSheet, shouldRender = true }) {
+  if (!shouldRender) {
+    return null;
+  }
 
   return (
     <div className="mt-6">
-      <Configure filters={baseFilterBy} hitsPerPage={5} />
       <ResultsList
         sectionTitle="Combos"
         items={combos}
@@ -280,9 +307,14 @@ const SearchResultsContent = ({ query }) => {
   const searchParams = useSearchParams();
   const { items: products } = useHits();
   const { status, results } = useInstantSearch();
+  const isComboFocusedQuery = useMemo(() => prefersComboResults(searchText), [searchText]);
+  const productHitsPerPage = isComboFocusedQuery ? 2 : 8;
+  const comboHitsPerPage = isComboFocusedQuery ? 8 : 2;
 
   // Initialise all filter/sort state from URL so a direct link loads correctly
   const [sortBy, setSortBy] = useState(() => searchParams.get("sort") || "");
+  const selectedSortOption = SORT_OPTIONS.find((option) => option.id === sortBy);
+  const comboIndexName = selectedSortOption?.comboIndexName ?? TYPESENSE_INDEXES.COMBO_PRODUCTS;
   const [selectedCategories, setSelectedCategories] = useState(() => {
     const cats = searchParams.get("categories");
     return cats ? cats.split(",").filter(Boolean) : [];
@@ -298,7 +330,9 @@ const SearchResultsContent = ({ query }) => {
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [variantSheetProduct, setVariantSheetProduct] = useState(null);
-  const [facetData, setFacetData] = useState({ categories: [], collections: [] });
+  const [productFacetData, setProductFacetData] = useState({ categories: [], collections: [] });
+  const [comboFacetData, setComboFacetData] = useState({ categories: [], collections: [] });
+  const [comboResultsData, setComboResultsData] = useState({ items: [], status: "idle" });
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [cachedPreviewProducts, setCachedPreviewProducts] = useState(() => getPreviewProductsCache(searchText));
   const cartItems = useCartStore((state) => state.cartItems);
@@ -327,8 +361,16 @@ const SearchResultsContent = ({ query }) => {
 
     return filters.join(" && ") || undefined;
   }, [baseFilterBy, selectedCategories, selectedCollections]);
-  const facetCategories = facetData.categories ?? [];
-  const facetCollections = facetData.collections ?? [];
+  const facetCategories = useMemo(
+    () => mergeFacetItems(productFacetData.categories ?? [], comboFacetData.categories ?? []),
+    [comboFacetData.categories, productFacetData.categories],
+  );
+  const facetCollections = useMemo(
+    () => mergeFacetItems(productFacetData.collections ?? [], comboFacetData.collections ?? []),
+    [comboFacetData.collections, productFacetData.collections],
+  );
+  const comboResults = comboResultsData.items ?? [];
+  const comboResultsStatus = comboResultsData.status;
   const isSearchLoading = status === "loading" || status === "stalled";
 
   // Reset filters (but not sort) whenever the search query changes
@@ -340,6 +382,7 @@ const SearchResultsContent = ({ query }) => {
       setSelectedCollections([]);
       setPriceRange({ min: "", max: "" });
       setCachedPreviewProducts(getPreviewProductsCache(searchText));
+      setComboResultsData({ items: [], status: "loading" });
       setHasLoadedOnce(false);
     }
   }, [searchText]);
@@ -451,11 +494,21 @@ const SearchResultsContent = ({ query }) => {
     <div className="relative max-h-full bg-white pb-[48px]">
       <QueryAndSortSync queryText={searchText} sortBy={sortBy} />
 
-      <Configure filters={combinedFilterBy} hitsPerPage={5} maxValuesPerFacet={200} />
+      <Configure filters={combinedFilterBy} hitsPerPage={productHitsPerPage} maxValuesPerFacet={200} />
 
       <Index indexName={TYPESENSE_INDEXES.PRODUCTS}>
         <Configure filters={baseFilterBy} hitsPerPage={1} maxValuesPerFacet={200} />
-        <FacetCollector onUpdate={setFacetData} />
+        <FacetCollector onUpdate={setProductFacetData} />
+      </Index>
+
+      <Index indexName={TYPESENSE_INDEXES.COMBO_PRODUCTS}>
+        <Configure filters={baseFilterBy} hitsPerPage={1} maxValuesPerFacet={200} />
+        <FacetCollector onUpdate={setComboFacetData} />
+      </Index>
+
+      <Index indexName={comboIndexName}>
+        <Configure filters={combinedFilterBy} hitsPerPage={comboHitsPerPage} />
+        <ComboResultsCollector onUpdate={setComboResultsData} />
       </Index>
 
       {shouldShowSkeleton ? (
@@ -531,22 +584,45 @@ const SearchResultsContent = ({ query }) => {
               </div>
             )}
 
-            <ResultsList
-              sectionTitle="Products"
-              items={displayProducts}
-              quantities={quantities}
-              onOpenVariantSheet={setVariantSheetProduct}
-              emptyMessage="No products found for this search."
-              showEmptyState={hasLoadedOnce && filteredProducts.length === 0}
-            />
+            {isComboFocusedQuery ? (
+              <>
+                <ComboResultsSection
+                  combos={comboResults}
+                  status={comboResultsStatus}
+                  quantities={quantities}
+                  onOpenVariantSheet={setVariantSheetProduct}
+                  shouldRender={!shouldShowSkeleton}
+                />
 
-            <Index indexName={TYPESENSE_INDEXES.COMBO_PRODUCTS}>
-              <ComboResultsSection
-                baseFilterBy={baseFilterBy}
-                quantities={quantities}
-                onOpenVariantSheet={setVariantSheetProduct}
-              />
-            </Index>
+                <ResultsList
+                  sectionTitle="Products"
+                  items={displayProducts}
+                  quantities={quantities}
+                  onOpenVariantSheet={setVariantSheetProduct}
+                  emptyMessage="No products found for this search."
+                  showEmptyState={hasLoadedOnce && filteredProducts.length === 0}
+                />
+              </>
+            ) : (
+              <>
+                <ResultsList
+                  sectionTitle="Products"
+                  items={displayProducts}
+                  quantities={quantities}
+                  onOpenVariantSheet={setVariantSheetProduct}
+                  emptyMessage="No products found for this search."
+                  showEmptyState={hasLoadedOnce && filteredProducts.length === 0}
+                />
+
+                <ComboResultsSection
+                  combos={comboResults}
+                  status={comboResultsStatus}
+                  quantities={quantities}
+                  onOpenVariantSheet={setVariantSheetProduct}
+                  shouldRender={!shouldShowSkeleton}
+                />
+              </>
+            )}
           </div>
           {/* Sort & Filter bar */}
           <SortAndFilterBar

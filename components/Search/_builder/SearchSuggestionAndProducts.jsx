@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Configure, Index, InstantSearch, useHits, useInstantSearch } from "react-instantsearch";
 import {
+  prefersComboResults,
   setPreviewProductsCache,
   typesenseSearchClient,
   TYPESENSE_INDEXES,
@@ -24,6 +25,9 @@ function HitsStateBridge({ onChange }) {
 function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadingChange }) {
   const { items: products, status } = useHits();
   const { status: instantSearchStatus } = useInstantSearch();
+  const isComboFocusedQuery = prefersComboResults(query);
+  const productHitsPerPage = isComboFocusedQuery ? 2 : 8;
+  const comboHitsPerPage = isComboFocusedQuery ? 8 : 2;
   const [suggestions, setSuggestions] = useState([]);
   const [combos, setCombos] = useState([]);
   const [displayedSuggestions, setDisplayedSuggestions] = useState([]);
@@ -91,7 +95,7 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
 
   return (
     <>
-      <Configure query={query} hitsPerPage={5} />
+      <Configure query={query} hitsPerPage={productHitsPerPage} />
 
       {query ? (
         <Index indexName={TYPESENSE_INDEXES.SEARCH_SUGGESTIONS}>
@@ -102,7 +106,7 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
 
       {query ? (
         <Index indexName={TYPESENSE_INDEXES.COMBO_PRODUCTS}>
-          <Configure query={query} hitsPerPage={5} />
+          <Configure query={query} hitsPerPage={comboHitsPerPage} />
           <HitsStateBridge onChange={setCombos} />
         </Index>
       ) : null}
@@ -132,78 +136,158 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
             </div>
           )}
 
-          {visibleProducts.length > 0 && (
-            <div
-              className={`bg-white transform-gpu transition-all duration-300 ease-out delay-75 ${
-                isDropdownVisible ? "translate-y-0 opacity-100" : "translate-y-[100px] opacity-0"
-              }`}
-            >
-              <div className="px-1 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">Products</div>
-              {visibleProducts.map((product, index) => (
-                <Link
-                  key={product.id}
-                  href={`https://nathabit.in/products/${product.url}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  prefetch={false}
-                  onClick={() => addToRecentlyViewed(product)}
-                  className="py-3 flex items-center gap-3 border-b border-gray-100 last:border-b-0"
+          {isComboFocusedQuery ? (
+            <>
+              {visibleCombos.length > 0 && (
+                <div
+                  className={`bg-white transform-gpu transition-all duration-300 ease-out delay-75 ${
+                    isDropdownVisible ? "translate-y-0 opacity-100" : "translate-y-[100px] opacity-0"
+                  }`}
                 >
-                  <div
-                    className={`relative w-[32px] h-[49px] rounded-[4px] overflow-hidden flex-shrink-0 bg-gray-100 transition-opacity duration-500 ease-out ${
-                      isDropdownVisible ? "opacity-100" : "opacity-0"
-                    }`}
-                    style={{ transitionDelay: `${1 * 80}ms` }}
-                  >
-                    <Image src={product.featured_image} alt={product.short_code || product.title} fill sizes="32px" />
-                  </div>
+                  <div className="px-1 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">Combos</div>
+                  {visibleCombos.map((product) => (
+                    <Link
+                      key={product.id}
+                      href={`https://nathabit.in/products/${product.url}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      prefetch={false}
+                      onClick={() => addToRecentlyViewed(product)}
+                      className="py-3 flex items-center gap-3 border-b border-gray-100 last:border-b-0"
+                    >
+                      <div
+                        className={`relative w-[32px] h-[49px] rounded-[4px] overflow-hidden flex-shrink-0 bg-gray-100 transition-opacity duration-500 ease-out ${
+                          isDropdownVisible ? "opacity-100" : "opacity-0"
+                        }`}
+                        style={{ transitionDelay: `${1 * 80}ms` }}
+                      >
+                        <Image src={product.featured_image} alt={product.short_code || product.title} fill sizes="32px" />
+                      </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-gray-500 mb-0.5 line-clamp-1">{product.subtitle}</div>
-                    <div className="text-sm text-gray-900 font-medium leading-5 line-clamp-2">
-                      {product.short_code || product.title}
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-gray-500 mb-0.5 line-clamp-1">{product.subtitle}</div>
+                        <div className="text-sm text-gray-900 font-medium leading-5 line-clamp-2">
+                          {product.short_code || product.title}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
 
-          {visibleCombos.length > 0 && (
-            <div
-              className={`bg-white transform-gpu transition-all duration-300 ease-out delay-100 ${
-                isDropdownVisible ? "translate-y-0 opacity-100" : "translate-y-[100px] opacity-0"
-              }`}
-            >
-              <div className="px-1 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">Combos</div>
-              {visibleCombos.map((product) => (
-                <Link
-                  key={product.id}
-                  href={`https://nathabit.in/products/${product.url}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  prefetch={false}
-                  onClick={() => addToRecentlyViewed(product)}
-                  className="py-3 flex items-center gap-3 border-b border-gray-100 last:border-b-0"
+              {visibleProducts.length > 0 && (
+                <div
+                  className={`bg-white transform-gpu transition-all duration-300 ease-out delay-100 ${
+                    isDropdownVisible ? "translate-y-0 opacity-100" : "translate-y-[100px] opacity-0"
+                  }`}
                 >
-                  <div
-                    className={`relative w-[32px] h-[49px] rounded-[4px] overflow-hidden flex-shrink-0 bg-gray-100 transition-opacity duration-500 ease-out ${
-                      isDropdownVisible ? "opacity-100" : "opacity-0"
-                    }`}
-                    style={{ transitionDelay: `${1 * 80}ms` }}
-                  >
-                    <Image src={product.featured_image} alt={product.short_code || product.title} fill sizes="32px" />
-                  </div>
+                  <div className="px-1 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">Products</div>
+                  {visibleProducts.map((product) => (
+                    <Link
+                      key={product.id}
+                      href={`https://nathabit.in/products/${product.url}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      prefetch={false}
+                      onClick={() => addToRecentlyViewed(product)}
+                      className="py-3 flex items-center gap-3 border-b border-gray-100 last:border-b-0"
+                    >
+                      <div
+                        className={`relative w-[32px] h-[49px] rounded-[4px] overflow-hidden flex-shrink-0 bg-gray-100 transition-opacity duration-500 ease-out ${
+                          isDropdownVisible ? "opacity-100" : "opacity-0"
+                        }`}
+                        style={{ transitionDelay: `${1 * 80}ms` }}
+                      >
+                        <Image src={product.featured_image} alt={product.short_code || product.title} fill sizes="32px" />
+                      </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-gray-500 mb-0.5 line-clamp-1">{product.subtitle}</div>
-                    <div className="text-sm text-gray-900 font-medium leading-5 line-clamp-2">
-                      {product.short_code || product.title}
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-gray-500 mb-0.5 line-clamp-1">{product.subtitle}</div>
+                        <div className="text-sm text-gray-900 font-medium leading-5 line-clamp-2">
+                          {product.short_code || product.title}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {visibleProducts.length > 0 && (
+                <div
+                  className={`bg-white transform-gpu transition-all duration-300 ease-out delay-75 ${
+                    isDropdownVisible ? "translate-y-0 opacity-100" : "translate-y-[100px] opacity-0"
+                  }`}
+                >
+                  <div className="px-1 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">Products</div>
+                  {visibleProducts.map((product) => (
+                    <Link
+                      key={product.id}
+                      href={`https://nathabit.in/products/${product.url}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      prefetch={false}
+                      onClick={() => addToRecentlyViewed(product)}
+                      className="py-3 flex items-center gap-3 border-b border-gray-100 last:border-b-0"
+                    >
+                      <div
+                        className={`relative w-[32px] h-[49px] rounded-[4px] overflow-hidden flex-shrink-0 bg-gray-100 transition-opacity duration-500 ease-out ${
+                          isDropdownVisible ? "opacity-100" : "opacity-0"
+                        }`}
+                        style={{ transitionDelay: `${1 * 80}ms` }}
+                      >
+                        <Image src={product.featured_image} alt={product.short_code || product.title} fill sizes="32px" />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-gray-500 mb-0.5 line-clamp-1">{product.subtitle}</div>
+                        <div className="text-sm text-gray-900 font-medium leading-5 line-clamp-2">
+                          {product.short_code || product.title}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {visibleCombos.length > 0 && (
+                <div
+                  className={`bg-white transform-gpu transition-all duration-300 ease-out delay-100 ${
+                    isDropdownVisible ? "translate-y-0 opacity-100" : "translate-y-[100px] opacity-0"
+                  }`}
+                >
+                  <div className="px-1 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">Combos</div>
+                  {visibleCombos.map((product) => (
+                    <Link
+                      key={product.id}
+                      href={`https://nathabit.in/products/${product.url}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      prefetch={false}
+                      onClick={() => addToRecentlyViewed(product)}
+                      className="py-3 flex items-center gap-3 border-b border-gray-100 last:border-b-0"
+                    >
+                      <div
+                        className={`relative w-[32px] h-[49px] rounded-[4px] overflow-hidden flex-shrink-0 bg-gray-100 transition-opacity duration-500 ease-out ${
+                          isDropdownVisible ? "opacity-100" : "opacity-0"
+                        }`}
+                        style={{ transitionDelay: `${1 * 80}ms` }}
+                      >
+                        <Image src={product.featured_image} alt={product.short_code || product.title} fill sizes="32px" />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-gray-500 mb-0.5 line-clamp-1">{product.subtitle}</div>
+                        <div className="text-sm text-gray-900 font-medium leading-5 line-clamp-2">
+                          {product.short_code || product.title}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       ) : null}

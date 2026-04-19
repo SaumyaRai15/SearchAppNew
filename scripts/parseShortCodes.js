@@ -1,18 +1,68 @@
-import { execFileSync } from "node:child_process";
-import os from "node:os";
-import path from "node:path";
-import XLSX from "xlsx";
+import fs from "node:fs";
+
+function parseCsv(fileContents) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < fileContents.length; i += 1) {
+    const char = fileContents[i];
+    const nextChar = fileContents[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        field += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (!inQuotes && char === ",") {
+      row.push(field);
+      field = "";
+      continue;
+    }
+
+    if (!inQuotes && (char === "\n" || char === "\r")) {
+      if (char === "\r" && nextChar === "\n") {
+        i += 1;
+      }
+
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+      continue;
+    }
+
+    field += char;
+  }
+
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+
+  return rows;
+}
 
 function readRows(filePath) {
-  const workbook = XLSX.readFile(filePath);
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(sheet, {
-    defval: "",
-  });
+  const fileContents = fs.readFileSync(filePath, "utf8");
+  const [headerRow = [], ...dataRows] = parseCsv(fileContents);
+  const headers = headerRow.map((header) => String(header || "").trim().toLowerCase());
 
-  return rows.map((row) =>
-    Object.fromEntries(Object.entries(row).map(([key, value]) => [String(key).trim().toLowerCase(), value])),
-  );
+  return dataRows
+    .filter((row) => row.some((value) => String(value || "").trim()))
+    .map((row) =>
+      headers.reduce((acc, header, index) => {
+        if (!header) return acc;
+        acc[header] = String(row[index] || "").trim();
+        return acc;
+      }, {}),
+    );
 }
 
 function parseShortCodeRows(rows) {
@@ -25,32 +75,10 @@ function parseShortCodeRows(rows) {
   }, {});
 }
 
-function exportNumbersToCsv(filePath) {
-  const csvFilePath = path.join(os.tmpdir(), `${path.basename(filePath, path.extname(filePath))}.csv`);
-
-  execFileSync("osascript", [
-    "-e",
-    'tell application "Numbers"',
-    "-e",
-    `set theDoc to open POSIX file "${filePath}"`,
-    "-e",
-    "delay 1",
-    "-e",
-    `export theDoc to POSIX file "${csvFilePath}" as CSV`,
-    "-e",
-    "close theDoc saving no",
-    "-e",
-    "end tell",
-  ]);
-
-  return csvFilePath;
-}
-
 export function parseSingleProductShortCodes(filePath) {
   return parseShortCodeRows(readRows(filePath));
 }
 
 export function parseComboProductShortCodes(filePath) {
-  const csvFilePath = exportNumbersToCsv(filePath);
-  return parseShortCodeRows(readRows(csvFilePath));
+  return parseShortCodeRows(readRows(filePath));
 }
