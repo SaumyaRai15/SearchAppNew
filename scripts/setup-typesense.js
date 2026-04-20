@@ -3,7 +3,6 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-/** Linked from `products` and `combo_products` via `curation_sets` (Typesense v30+). */
 const CURATION_SET_NAME = "product_combo_search_rules";
 
 /** Intent tokens; stripping "combo"/"combos" can leave q empty (e.g. "female combo" → ""). */
@@ -107,6 +106,8 @@ async function createCollections() {
       { name: "categories", type: "string[]", facet: true, optional: true },
       { name: "concerns", type: "string[]", facet: true, optional: true },
       { name: "sku", type: "string", optional: true },
+      { name: "ingredients", type: "string[]", optional: true },
+      { name: "additional_ingredients", type: "string[]", optional: true },
       { name: "gender", type: "string[]", facet: true, optional: true },
       { name: "product_type", type: "string[]", facet: true, optional: true },
       { name: "price", type: "float", facet: true, optional: true },

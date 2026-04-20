@@ -26,8 +26,8 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
   const { items: products, status } = useHits();
   const { status: instantSearchStatus } = useInstantSearch();
   const isComboFocusedQuery = prefersComboResults(query);
-  const productHitsPerPage = isComboFocusedQuery ? 5 : 15;
-  const comboHitsPerPage = isComboFocusedQuery ? 15 : 5;
+  const productHitsPerPage = isComboFocusedQuery ? 2 : 3;
+  const comboHitsPerPage = isComboFocusedQuery ? 3 : 2;
   const [suggestions, setSuggestions] = useState([]);
   const [combos, setCombos] = useState([]);
   const [displayedSuggestions, setDisplayedSuggestions] = useState([]);

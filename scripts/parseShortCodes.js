@@ -52,7 +52,12 @@ function parseCsv(fileContents) {
 function readRows(filePath) {
   const fileContents = fs.readFileSync(filePath, "utf8");
   const [headerRow = [], ...dataRows] = parseCsv(fileContents);
-  const headers = headerRow.map((header) => String(header || "").trim().toLowerCase());
+  const headers = headerRow.map((header) =>
+    String(header || "")
+      .trim()
+      .toLowerCase()
+      .replace(/^\ufeff/, ""),
+  );
 
   return dataRows
     .filter((row) => row.some((value) => String(value || "").trim()))
@@ -81,4 +86,36 @@ export function parseSingleProductShortCodes(filePath) {
 
 export function parseComboProductShortCodes(filePath) {
   return parseShortCodeRows(readRows(filePath));
+}
+
+/**
+ * SQL export: one row per bundle line item. Headers (case-insensitive in CSV):
+ * combo_sku, bundle_item_sku, product_qty, …
+ * @returns {Map<string, string[]>} combo SKU → ordered unique component SKUs for D2C / Excel lookup
+ */
+export function parseComboBundleItemSkus(filePath) {
+  const map = new Map();
+
+  if (!filePath || !fs.existsSync(filePath)) {
+    console.warn(`Combo bundle items CSV not found (ingredients for combos will be empty): ${filePath || "(no path)"}`);
+    return map;
+  }
+
+  const rows = readRows(filePath);
+
+  for (const row of rows) {
+    const comboSku = String(row.combo_sku || "").trim();
+    const itemSku = String(row.bundle_item_sku || "").trim();
+    if (!comboSku || !itemSku) continue;
+
+    if (!map.has(comboSku)) {
+      map.set(comboSku, []);
+    }
+    const list = map.get(comboSku);
+    if (!list.includes(itemSku)) {
+      list.push(itemSku);
+    }
+  }
+
+  return map;
 }

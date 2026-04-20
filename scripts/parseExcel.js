@@ -2,9 +2,29 @@ import XLSX from "xlsx";
 
 // ---------- HELPERS ----------
 
+export function isBlankOrNaIngredientValue(val) {
+  if (val == null) return true;
+  const s = String(val).trim();
+  if (!s) return true;
+  const lower = s.toLowerCase();
+  return lower === "#n/a" || lower === "n/a" || lower === "na" || lower === "null";
+}
+
+/** Comma-split D2C ingredient cells; drops empty / NA / null tokens (products + combo bundle Excel rows). */
+function splitIngredientCell(val, limit) {
+  if (isBlankOrNaIngredientValue(val)) return [];
+
+  return String(val)
+    .split(",")
+    .map((v) => v.trim().toLowerCase())
+    .filter((v) => v.length > 0 && !isBlankOrNaIngredientValue(v))
+    .slice(0, limit ?? Infinity);
+}
+
+/** Comma-split for non-ingredient list columns (concerns, benefits, etc.). */
 const split = (val, limit) =>
   val && val !== "#N/A"
-    ? val
+    ? String(val)
         .split(",")
         .map((v) => v.trim().toLowerCase())
         .filter(Boolean)
@@ -17,7 +37,8 @@ const WOMEN_GENDER_TOKENS = ["women", "woman", "female", "her", "girl"];
 
 function normalizeGender(v = "") {
   v = v.toLowerCase();
-  if (v.includes("all") || v.includes("unisex")) return [UNISEX_GENDER_TOKEN, ...MEN_GENDER_TOKENS, ...WOMEN_GENDER_TOKENS];
+  if (v.includes("all") || v.includes("unisex"))
+    return [UNISEX_GENDER_TOKEN, ...MEN_GENDER_TOKENS, ...WOMEN_GENDER_TOKENS];
   if (v.match(/men|male|man|boy/)) return MEN_GENDER_TOKENS;
   if (v.match(/women|woman|female|girl/)) return WOMEN_GENDER_TOKENS;
   return [];
@@ -169,12 +190,12 @@ export function parseExcel(filePath) {
   const map = {};
 
   json.forEach((row) => {
-    const sku = row["SKU"];
-    if (!sku) return;
+    const skuKey = String(row["SKU"] ?? "").trim();
+    if (!skuKey) return;
 
-    map[sku] = {
-      ingredients: split(row["Ingredients"], 5),
-      additional_ingredients: split(row["Additional Ingreds Callout - Beyond Top 4-5"]),
+    map[skuKey] = {
+      ingredients: splitIngredientCell(row["Ingredients"], 5),
+      additional_ingredients: splitIngredientCell(row["Additional Ingreds Callout - Beyond Top 4-5"]),
 
       gender: normalizeGender(row["Gender"]),
       skin_hair_type: normalizeSkinHair(row["Skin/Hair Type"]),

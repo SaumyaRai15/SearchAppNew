@@ -3,8 +3,12 @@ import axios from "axios";
 import dotenv from "dotenv";
 import os from "node:os";
 import path from "node:path";
-import { parseExcel } from "./parseExcel.js";
-import { parseComboProductShortCodes, parseSingleProductShortCodes } from "./parseShortCodes.js";
+import { isBlankOrNaIngredientValue, parseExcel } from "./parseExcel.js";
+import {
+  parseComboBundleItemSkus,
+  parseComboProductShortCodes,
+  parseSingleProductShortCodes,
+} from "./parseShortCodes.js";
 
 dotenv.config();
 
@@ -29,8 +33,12 @@ const excelFilePath =
 const excelMap = parseExcel(excelFilePath);
 const singleProductShortCodePath = path.join(os.homedir(), "Downloads", "single_product_sku.csv");
 const comboProductShortCodePath = path.join(os.homedir(), "Downloads", "combo_products_with_different_skus.csv");
+const comboBundleItemsPath =
+  process.env.COMBO_BUNDLE_ITEMS_CSV_PATH ||
+  path.join(os.homedir(), "Downloads", "combo_products_with_rent_skus_and_no_join.csv");
 const singleProductShortCodeMap = parseSingleProductShortCodes(singleProductShortCodePath);
 const comboProductShortCodeMap = parseComboProductShortCodes(comboProductShortCodePath);
+const comboSkuToBundleItemSkus = parseComboBundleItemSkus(comboBundleItemsPath);
 
 /* -----------------------------
    CMS Query
@@ -148,6 +156,38 @@ function getProductSku(variants) {
   return variants.find((v) => v.attributes?.sku)?.attributes?.sku || variants[0]?.attributes?.sku || null;
 }
 
+/** Merge ingredients from D2C sheet for each bundle line-item SKU (SQL export → combo_products_with_rent_skus_and_no_join.csv). */
+function mergeComboIngredientsFromBundleSkus(comboSku, bundleSkuMap) {
+  const componentSkus = bundleSkuMap.get(String(comboSku || "").trim()) || [];
+  const ingredients = [];
+  const additional_ingredients = [];
+  const seenI = new Set();
+  const seenA = new Set();
+
+  for (const itemSku of componentSkus) {
+    const key = String(itemSku || "").trim();
+    const row = key ? excelMap[key] : null;
+    if (!row) continue;
+
+    for (const x of row.ingredients || []) {
+      if (isBlankOrNaIngredientValue(x)) continue;
+      const k = String(x).toLowerCase();
+      if (!k || seenI.has(k)) continue;
+      seenI.add(k);
+      ingredients.push(x);
+    }
+    for (const x of row.additional_ingredients || []) {
+      if (isBlankOrNaIngredientValue(x)) continue;
+      const k = String(x).toLowerCase();
+      if (!k || seenA.has(k)) continue;
+      seenA.add(k);
+      additional_ingredients.push(x);
+    }
+  }
+
+  return { ingredients, additional_ingredients };
+}
+
 function getTitleGender(title = "") {
   const normalizedTitle = title.toLowerCase();
   const gender = new Set();
@@ -208,9 +248,6 @@ function transformProduct(product, { shortCode, includeExcelData = true } = {}) 
   const sku = getProductSku(variants);
   const excel = includeExcelData && sku ? excelMap[sku] || {} : {};
   const gender = [...new Set([...(excel.gender || []), ...getTitleGender(normalizedTitle)])];
-  if (sku === "AC-GB-PR-01") {
-    console.log("yahaha", gender);
-  }
 
   return {
     id: product.id,
@@ -278,12 +315,20 @@ async function syncProducts() {
       (isComboProduct ? comboShortCode : sku ? singleProductShortCodeMap[sku] : "") ||
       normalizeTitle(product.attributes.title || "");
 
+    const doc = transformProduct(product, {
+      shortCode,
+      includeExcelData: !isComboProduct,
+    });
+
+    if (isComboProduct && sku) {
+      const merged = mergeComboIngredientsFromBundleSkus(sku, comboSkuToBundleItemSkus);
+      doc.ingredients = merged.ingredients;
+      doc.additional_ingredients = merged.additional_ingredients;
+    }
+
     return {
       isComboProduct,
-      doc: transformProduct(product, {
-        shortCode,
-        includeExcelData: !isComboProduct,
-      }),
+      doc,
     };
   });
   const productDocs = docs.filter((entry) => !entry.isComboProduct).map((entry) => entry.doc);
