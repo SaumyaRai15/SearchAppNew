@@ -11,11 +11,15 @@ const split = (val, limit) =>
         .slice(0, limit ?? Infinity)
     : [];
 
+const UNISEX_GENDER_TOKEN = "unisex";
+const MEN_GENDER_TOKENS = ["men", "man", "male", "him", "boy"];
+const WOMEN_GENDER_TOKENS = ["women", "woman", "female", "her", "girl"];
+
 function normalizeGender(v = "") {
   v = v.toLowerCase();
-  if (v.includes("all")) return ["all"];
-  if (v.match(/men|male|man|boy/)) return ["men"];
-  if (v.match(/women|woman|female|girl/)) return ["women"];
+  if (v.includes("all") || v.includes("unisex")) return [UNISEX_GENDER_TOKEN, ...MEN_GENDER_TOKENS, ...WOMEN_GENDER_TOKENS];
+  if (v.match(/men|male|man|boy/)) return MEN_GENDER_TOKENS;
+  if (v.match(/women|woman|female|girl/)) return WOMEN_GENDER_TOKENS;
   return [];
 }
 

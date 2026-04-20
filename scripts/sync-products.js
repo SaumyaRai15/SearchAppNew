@@ -112,6 +112,10 @@ function isoToUnix(ts) {
   return Math.floor(new Date(ts).getTime() / 1000);
 }
 
+const UNISEX_GENDER_TOKEN = "unisex";
+const MEN_GENDER_TOKENS = ["men", "man", "male"];
+const WOMEN_GENDER_TOKENS = ["women", "woman", "female"];
+
 function normalizeTitle(title = "") {
   let wordIndex = 0;
 
@@ -144,6 +148,30 @@ function getProductSku(variants) {
   return variants.find((v) => v.attributes?.sku)?.attributes?.sku || variants[0]?.attributes?.sku || null;
 }
 
+function getTitleGender(title = "") {
+  const normalizedTitle = title.toLowerCase();
+  const gender = new Set();
+
+  if (normalizedTitle.match(/\bunisex\b/)) {
+    gender.add(UNISEX_GENDER_TOKEN);
+  }
+
+  if (normalizedTitle.match(/\b(?:men|male|man|boy)\b/)) {
+    MEN_GENDER_TOKENS.forEach((token) => gender.add(token));
+  }
+
+  if (normalizedTitle.match(/\b(?:women|woman|female|girl)\b/)) {
+    WOMEN_GENDER_TOKENS.forEach((token) => gender.add(token));
+  }
+
+  if (gender.size < 1) {
+    MEN_GENDER_TOKENS.forEach((token) => gender.add(token));
+    WOMEN_GENDER_TOKENS.forEach((token) => gender.add(token));
+  }
+
+  return [...gender];
+}
+
 function transformProduct(product, { shortCode, includeExcelData = true } = {}) {
   const attrs = product.attributes;
   const normalizedTitle = normalizeTitle(attrs.title || "");
@@ -171,10 +199,6 @@ function transformProduct(product, { shortCode, includeExcelData = true } = {}) 
 
   const titleLower = normalizedTitle.toLowerCase();
 
-  const audience = [];
-  if (titleLower.includes("men")) audience.push("men");
-  if (titleLower.includes("women")) audience.push("women");
-
   const productType = [];
   ["wash", "cleanser", "serum", "oil", "cream"].forEach((k) => {
     if (titleLower.includes(k)) productType.push(k);
@@ -183,6 +207,10 @@ function transformProduct(product, { shortCode, includeExcelData = true } = {}) 
   const variants = attrs.variants.data.map((v) => v);
   const sku = getProductSku(variants);
   const excel = includeExcelData && sku ? excelMap[sku] || {} : {};
+  const gender = [...new Set([...(excel.gender || []), ...getTitleGender(normalizedTitle)])];
+  if (sku === "AC-GB-PR-01") {
+    console.log("yahaha", gender);
+  }
 
   return {
     id: product.id,
@@ -198,7 +226,7 @@ function transformProduct(product, { shortCode, includeExcelData = true } = {}) 
     collections,
     categories: [...categories],
     concerns,
-    audience,
+    gender,
     product_type: productType,
     compare_at_price: compareAtPrices.length ? Math.min(...compareAtPrices) : null,
     variants,
@@ -208,7 +236,6 @@ function transformProduct(product, { shortCode, includeExcelData = true } = {}) 
       ? {
           ingredients: excel.ingredients || [],
           additional_ingredients: excel.additional_ingredients || [],
-          gender: excel.gender || [],
           skin_hair_type: excel.skin_hair_type || [],
           seasonality: excel.seasonality || [],
           target_age_group: excel.target_age_group || [],
@@ -248,7 +275,8 @@ async function syncProducts() {
     const isComboProduct = Boolean(sku && Object.hasOwn(comboProductShortCodeMap, sku));
     const comboShortCode = isComboProduct ? comboProductShortCodeMap[sku] : "";
     const shortCode =
-      (isComboProduct ? comboShortCode : sku ? singleProductShortCodeMap[sku] : "") || normalizeTitle(product.attributes.title || "");
+      (isComboProduct ? comboShortCode : sku ? singleProductShortCodeMap[sku] : "") ||
+      normalizeTitle(product.attributes.title || "");
 
     return {
       isComboProduct,

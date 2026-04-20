@@ -38,7 +38,7 @@ const SEARCH_SUGGESTIONS = [
     id: "mens-facewash",
     label: "Face wash for men",
     query: "face wash",
-    filter_by: "categories:=face-care && product_type:=wash && audience:=men && price:>=90",
+    filter_by: "categories:=face-care && product_type:=wash && gender:=[men,man,male] && price:>=90",
     priority: 90,
   },
   {
@@ -150,7 +150,7 @@ const SEARCH_SUGGESTIONS = [
     id: "mens-hair-products",
     label: "Hair products for men",
     query: "mens hair",
-    filter_by: "categories:=hair-care && audience:=men && price:>=90",
+    filter_by: "categories:=hair-care && gender:=[men,man,male] && price:>=90",
     priority: 88,
   },
   {

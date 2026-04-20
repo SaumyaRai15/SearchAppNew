@@ -3,7 +3,28 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+/** Linked from `products` and `combo_products` via `curation_sets` (Typesense v30+). */
+const CURATION_SET_NAME = "product_combo_search_rules";
+
+/** Intent tokens; stripping "combo"/"combos" can leave q empty (e.g. "female combo" → ""). */
 const COMBO_OVERRIDE_TERMS = ["gift", "gifts", "kit", "kits", "set", "sets", "pack", "packs", "combo", "combos"];
+const GENDER_OVERRIDE_RULES = [
+  {
+    id: "gender-unisex",
+    terms: ["unisex"],
+    filter_by: "gender:=[unisex]",
+  },
+  {
+    id: "gender-men",
+    terms: ["men", "man", "male", "him", "boy"],
+    filter_by: "gender:=[men,man,male,him,boy]",
+  },
+  {
+    id: "gender-women",
+    terms: ["women", "woman", "female", "her", "girl"],
+    filter_by: "gender:=[women,woman,female,her,girl]",
+  },
+];
 
 const client = new Typesense.Client({
   nodes: [
@@ -36,6 +57,7 @@ async function createCollections() {
   // PRODUCTS
   await client.collections().create({
     name: "products",
+    curation_sets: [CURATION_SET_NAME],
     enable_nested_fields: true,
     fields: [
       { name: "id", type: "string" },
@@ -57,7 +79,6 @@ async function createCollections() {
       { name: "target_age_group", type: "string[]", facet: true, optional: true },
       { name: "benefits", type: "string[]", optional: true },
       { name: "safety_callouts", type: "string[]", optional: true },
-      { name: "audience", type: "string[]", facet: true, optional: true },
       { name: "product_type", type: "string[]", facet: true, optional: true },
       { name: "price", type: "float", facet: true, optional: true },
       { name: "compare_at_price", type: "float", facet: true, optional: true },
@@ -72,6 +93,7 @@ async function createCollections() {
   // COMBO PRODUCTS
   await client.collections().create({
     name: "combo_products",
+    curation_sets: [CURATION_SET_NAME],
     enable_nested_fields: true,
     fields: [
       { name: "id", type: "string" },
@@ -85,7 +107,7 @@ async function createCollections() {
       { name: "categories", type: "string[]", facet: true, optional: true },
       { name: "concerns", type: "string[]", facet: true, optional: true },
       { name: "sku", type: "string", optional: true },
-      { name: "audience", type: "string[]", facet: true, optional: true },
+      { name: "gender", type: "string[]", facet: true, optional: true },
       { name: "product_type", type: "string[]", facet: true, optional: true },
       { name: "price", type: "float", facet: true, optional: true },
       { name: "compare_at_price", type: "float", facet: true, optional: true },
@@ -129,39 +151,46 @@ async function createCollections() {
   console.log("Created product_popularity collection");
 }
 
-async function createOverrides() {
+async function createCurationSet() {
+  const items = [];
+
   for (const term of COMBO_OVERRIDE_TERMS) {
-    //adding rule sets for both collections so that search query remains same for both collections
-    await client
-      .collections("combo_products")
-      .overrides()
-      .upsert(`combo-intent-${term}`, {
-        rule: {
-          query: term,
-          match: "contains",
-        },
-        remove_matched_tokens: true,
-      });
-    //adding rule sets for both collections so that search query remains same for both collections
-    await client
-      .collections("products")
-      .overrides()
-      .upsert(`combo-intent-${term}`, {
-        rule: {
-          query: term,
-          match: "contains",
-        },
-        remove_matched_tokens: true,
-      });
+    items.push({
+      id: `combo-intent-${term}`,
+      rule: {
+        query: term,
+        match: "contains",
+      },
+      remove_matched_tokens: true,
+    });
   }
 
-  console.log("Created products and combo_products overrides");
+  // for (const ruleConfig of GENDER_OVERRIDE_RULES) {
+  //   for (const term of ruleConfig.terms) {
+  //     items.push({
+  //       id: `${ruleConfig.id}-${term}`,
+  //       rule: {
+  //         query: term,
+  //         match: "contains",
+  //       },
+  //       filter_by: ruleConfig.filter_by,
+  //       remove_matched_tokens: false,
+  //     });
+  //   }
+  // }
+
+  await client.curationSets(CURATION_SET_NAME).upsert({
+    name: CURATION_SET_NAME,
+    items,
+  });
+
+  console.log(`Created/updated curation set: ${CURATION_SET_NAME}`);
 }
 
 async function run() {
   await resetCollections();
+  await createCurationSet();
   await createCollections();
-  await createOverrides();
   console.log("Typesense setup complete");
 }
 

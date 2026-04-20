@@ -168,7 +168,9 @@ function ResultsList({ sectionTitle, items, quantities, onOpenVariantSheet, empt
 
   return (
     <>
-      {sectionTitle ? <div className="px-1 text-[12px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">{sectionTitle}</div> : null}
+      {sectionTitle ? (
+        <div className="px-1 text-[12px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">{sectionTitle}</div>
+      ) : null}
       {items.length === 0 ? (
         <div className="py-16 text-center text-sm text-gray-500">{emptyMessage}</div>
       ) : (
@@ -192,13 +194,21 @@ function ResultsList({ sectionTitle, items, quantities, onOpenVariantSheet, empt
                 onClick={() => addToRecentlyViewed(product)}
               >
                 <div className="relative w-[72px] h-[111px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                  <Image src={product.featured_image} alt={product.short_code || product.title} fill unoptimized loading="eager" />
+                  <Image
+                    src={product.featured_image}
+                    alt={product.short_code || product.title}
+                    fill
+                    unoptimized
+                    loading="eager"
+                  />
                 </div>
               </Link>
               <div className="flex-1 flex flex-col min-w-0">
                 <div className="flex justify-between gap-3">
                   <div className="flex flex-col gap-[2px]">
-                    <div className="text-[14px] text-[#292E2C] leading-[20px]">{product.short_code || product.title}</div>
+                    <div className="text-[14px] text-[#292E2C] leading-[20px]">
+                      {product.short_code || product.title}
+                    </div>
 
                     <div className="text-[12px] text-[#7B818C] leading-[16px]">{product.subtitle}</div>
 
@@ -215,7 +225,9 @@ function ResultsList({ sectionTitle, items, quantities, onOpenVariantSheet, empt
                     </div>
                   </div>
 
-                  <div className={`flex flex-col w-[72px] h-[58px] rounded-[8px] items-center flex-shrink-0 bg-[#FCF8F7]`}>
+                  <div
+                    className={`flex flex-col w-[72px] h-[58px] rounded-[8px] items-center flex-shrink-0 bg-[#FCF8F7]`}
+                  >
                     {hasVariants && (
                       <>
                         {totalVariantQty === 0 ? (
@@ -262,7 +274,9 @@ function ResultsList({ sectionTitle, items, quantities, onOpenVariantSheet, empt
                     <>
                       <p className="text-[10px] text-[#9DA6B2]">
                         ₹
-                        <span className="text-[12px] leading-[10px]  line-through">{formatPrice(product.compare_at_price)}</span>
+                        <span className="text-[12px] leading-[10px]  line-through">
+                          {formatPrice(product.compare_at_price)}
+                        </span>
                       </p>
                       {getDiscountPercent(product.price, product.compare_at_price) != null && (
                         <span className="text-[12px] leading-[20px] font-medium text-[#D13F44]">
@@ -308,8 +322,8 @@ const SearchResultsContent = ({ query }) => {
   const { items: products } = useHits();
   const { status, results } = useInstantSearch();
   const isComboFocusedQuery = useMemo(() => prefersComboResults(searchText), [searchText]);
-  const productHitsPerPage = isComboFocusedQuery ? 2 : 8;
-  const comboHitsPerPage = isComboFocusedQuery ? 8 : 2;
+  const productHitsPerPage = isComboFocusedQuery ? 5 : 15;
+  const comboHitsPerPage = isComboFocusedQuery ? 15 : 5;
 
   // Initialise all filter/sort state from URL so a direct link loads correctly
   const [sortBy, setSortBy] = useState(() => searchParams.get("sort") || "");

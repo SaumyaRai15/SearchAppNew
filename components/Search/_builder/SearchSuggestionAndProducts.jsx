@@ -26,8 +26,8 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
   const { items: products, status } = useHits();
   const { status: instantSearchStatus } = useInstantSearch();
   const isComboFocusedQuery = prefersComboResults(query);
-  const productHitsPerPage = isComboFocusedQuery ? 2 : 8;
-  const comboHitsPerPage = isComboFocusedQuery ? 8 : 2;
+  const productHitsPerPage = isComboFocusedQuery ? 5 : 15;
+  const comboHitsPerPage = isComboFocusedQuery ? 15 : 5;
   const [suggestions, setSuggestions] = useState([]);
   const [combos, setCombos] = useState([]);
   const [displayedSuggestions, setDisplayedSuggestions] = useState([]);
@@ -60,7 +60,8 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
     setDisplayedCombos(combos);
   }, [combos, isLoading, products, suggestions]);
 
-  const hasDisplayedResults = displayedSuggestions.length > 0 || displayedProducts.length > 0 || displayedCombos.length > 0;
+  const hasDisplayedResults =
+    displayedSuggestions.length > 0 || displayedProducts.length > 0 || displayedCombos.length > 0;
   const shouldShowPreviousResults = isLoading && hasDisplayedResults;
   const visibleSuggestions = shouldShowPreviousResults ? displayedSuggestions : suggestions;
   const visibleProducts = shouldShowPreviousResults ? displayedProducts : products;
@@ -144,7 +145,9 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
                     isDropdownVisible ? "translate-y-0 opacity-100" : "translate-y-[100px] opacity-0"
                   }`}
                 >
-                  <div className="px-1 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">Combos</div>
+                  <div className="px-1 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">
+                    Combos
+                  </div>
                   {visibleCombos.map((product) => (
                     <Link
                       key={product.id}
@@ -161,7 +164,12 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
                         }`}
                         style={{ transitionDelay: `${1 * 80}ms` }}
                       >
-                        <Image src={product.featured_image} alt={product.short_code || product.title} fill sizes="32px" />
+                        <Image
+                          src={product.featured_image}
+                          alt={product.short_code || product.title}
+                          fill
+                          sizes="32px"
+                        />
                       </div>
 
                       <div className="flex-1 min-w-0">
@@ -181,7 +189,9 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
                     isDropdownVisible ? "translate-y-0 opacity-100" : "translate-y-[100px] opacity-0"
                   }`}
                 >
-                  <div className="px-1 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">Products</div>
+                  <div className="px-1 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">
+                    Products
+                  </div>
                   {visibleProducts.map((product) => (
                     <Link
                       key={product.id}
@@ -198,7 +208,12 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
                         }`}
                         style={{ transitionDelay: `${1 * 80}ms` }}
                       >
-                        <Image src={product.featured_image} alt={product.short_code || product.title} fill sizes="32px" />
+                        <Image
+                          src={product.featured_image}
+                          alt={product.short_code || product.title}
+                          fill
+                          sizes="32px"
+                        />
                       </div>
 
                       <div className="flex-1 min-w-0">
@@ -220,7 +235,9 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
                     isDropdownVisible ? "translate-y-0 opacity-100" : "translate-y-[100px] opacity-0"
                   }`}
                 >
-                  <div className="px-1 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">Products</div>
+                  <div className="px-1 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">
+                    Products
+                  </div>
                   {visibleProducts.map((product) => (
                     <Link
                       key={product.id}
@@ -237,7 +254,12 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
                         }`}
                         style={{ transitionDelay: `${1 * 80}ms` }}
                       >
-                        <Image src={product.featured_image} alt={product.short_code || product.title} fill sizes="32px" />
+                        <Image
+                          src={product.featured_image}
+                          alt={product.short_code || product.title}
+                          fill
+                          sizes="32px"
+                        />
                       </div>
 
                       <div className="flex-1 min-w-0">
@@ -257,7 +279,9 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
                     isDropdownVisible ? "translate-y-0 opacity-100" : "translate-y-[100px] opacity-0"
                   }`}
                 >
-                  <div className="px-1 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">Combos</div>
+                  <div className="px-1 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">
+                    Combos
+                  </div>
                   {visibleCombos.map((product) => (
                     <Link
                       key={product.id}
@@ -274,7 +298,12 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
                         }`}
                         style={{ transitionDelay: `${1 * 80}ms` }}
                       >
-                        <Image src={product.featured_image} alt={product.short_code || product.title} fill sizes="32px" />
+                        <Image
+                          src={product.featured_image}
+                          alt={product.short_code || product.title}
+                          fill
+                          sizes="32px"
+                        />
                       </div>
 
                       <div className="flex-1 min-w-0">
