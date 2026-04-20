@@ -82,6 +82,7 @@ async function createCollections() {
       { name: "price", type: "float", facet: true, optional: true },
       { name: "compare_at_price", type: "float", facet: true, optional: true },
       { name: "variants", type: "object[]", optional: true, facet: true },
+      { name: "popularity_score", type: "int32", optional: true },
       { name: "updated_at", type: "int64" },
     ],
     default_sorting_field: "updated_at",
@@ -113,6 +114,7 @@ async function createCollections() {
       { name: "price", type: "float", facet: true, optional: true },
       { name: "compare_at_price", type: "float", facet: true, optional: true },
       { name: "variants", type: "object[]", optional: true, facet: true },
+      { name: "popularity_score", type: "int32", optional: true },
       { name: "updated_at", type: "int64" },
     ],
     default_sorting_field: "updated_at",
@@ -136,20 +138,20 @@ async function createCollections() {
   console.log("Created search_suggestions collection");
 
   // POPULARITY
-  await client.collections().create({
-    name: "product_popularity",
-    fields: [
-      { name: "id", type: "string" },
-      { name: "product_id", type: "string" },
-      { name: "DEL", type: "int32" },
-      { name: "BOM", type: "int32" },
-      { name: "BLR", type: "int32" },
-      { name: "GGN", type: "int32" },
-      { name: "title", type: "string", optional: true },
-    ],
-  });
+  // await client.collections().create({
+  //   name: "product_popularity",
+  //   fields: [
+  //     { name: "id", type: "string" },
+  //     { name: "product_id", type: "string" },
+  //     { name: "DEL", type: "int32" },
+  //     { name: "BOM", type: "int32" },
+  //     { name: "BLR", type: "int32" },
+  //     { name: "GGN", type: "int32" },
+  //     { name: "title", type: "string", optional: true },
+  //   ],
+  // });
 
-  console.log("Created product_popularity collection");
+  // console.log("Created product_popularity collection");
 }
 
 async function createCurationSet() {

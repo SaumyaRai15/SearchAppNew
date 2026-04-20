@@ -119,3 +119,34 @@ export function parseComboBundleItemSkus(filePath) {
 
   return map;
 }
+
+/**
+ * order_grouped_sales_data CSV: variant_id → sum (units / sales total used as popularity_score).
+ * @returns {Record<string, number>} keyed by string variant id
+ */
+export function parseOrderGroupedSalesData(filePath) {
+  const map = Object.create(null);
+
+  if (!filePath || !fs.existsSync(filePath)) {
+    console.warn(`order_grouped_sales_data CSV not found (popularity_score will be 0): ${filePath || "(no path)"}`);
+    return map;
+  }
+
+  const rows = readRows(filePath);
+
+  for (const row of rows) {
+    const vid = String(row.variant_id ?? "").trim();
+    if (!vid) continue;
+
+    const rawSum = row.sum;
+    const num =
+      typeof rawSum === "number" && Number.isFinite(rawSum)
+        ? rawSum
+        : parseFloat(String(rawSum ?? "").replace(/,/g, ""));
+    if (!Number.isFinite(num)) continue;
+
+    map[vid] = Math.round(num);
+  }
+
+  return map;
+}

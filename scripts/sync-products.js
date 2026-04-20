@@ -7,6 +7,7 @@ import { isBlankOrNaIngredientValue, parseExcel } from "./parseExcel.js";
 import {
   parseComboBundleItemSkus,
   parseComboProductShortCodes,
+  parseOrderGroupedSalesData,
   parseSingleProductShortCodes,
 } from "./parseShortCodes.js";
 
@@ -39,6 +40,9 @@ const comboBundleItemsPath =
 const singleProductShortCodeMap = parseSingleProductShortCodes(singleProductShortCodePath);
 const comboProductShortCodeMap = parseComboProductShortCodes(comboProductShortCodePath);
 const comboSkuToBundleItemSkus = parseComboBundleItemSkus(comboBundleItemsPath);
+const orderGroupedSalesPath =
+  process.env.ORDER_GROUPED_SALES_CSV_PATH || path.join(os.homedir(), "Downloads", "order_grouped_sales_data.csv");
+const popularityByVariantId = parseOrderGroupedSalesData(orderGroupedSalesPath);
 
 /* -----------------------------
    CMS Query
@@ -156,6 +160,29 @@ function getProductSku(variants) {
   return variants.find((v) => v.attributes?.sku)?.attributes?.sku || variants[0]?.attributes?.sku || null;
 }
 
+/** Normalize CMS shopifyVariantId to the numeric id string used in order_grouped_sales_data. */
+function normalizeShopifyVariantId(raw) {
+  if (raw == null || raw === "") return null;
+  const s = String(raw).trim();
+  const gidMatch = s.match(/ProductVariant\/(\d+)/);
+  if (gidMatch) return gidMatch[1];
+  return s || null;
+}
+
+/** Sum CSV `sum` values for each variant on the document (variant_id → popularity). */
+function getDocumentPopularityScore(variantNodes) {
+  let total = 0;
+  for (const v of variantNodes) {
+    const id = normalizeShopifyVariantId(v.attributes?.shopifyVariantId);
+    if (!id) continue;
+    const n = Number(id);
+    const key = Number.isFinite(n) ? String(n) : id;
+    const score = popularityByVariantId[key] ?? popularityByVariantId[id] ?? 0;
+    total += score;
+  }
+  return total;
+}
+
 /** Merge ingredients from D2C sheet for each bundle line-item SKU (SQL export → combo_products_with_rent_skus_and_no_join.csv). */
 function mergeComboIngredientsFromBundleSkus(comboSku, bundleSkuMap) {
   const componentSkus = bundleSkuMap.get(String(comboSku || "").trim()) || [];
@@ -248,6 +275,7 @@ function transformProduct(product, { shortCode, includeExcelData = true } = {}) 
   const sku = getProductSku(variants);
   const excel = includeExcelData && sku ? excelMap[sku] || {} : {};
   const gender = [...new Set([...(excel.gender || []), ...getTitleGender(normalizedTitle)])];
+  const popularity_score = getDocumentPopularityScore(attrs.variants.data);
 
   return {
     id: product.id,
@@ -268,6 +296,7 @@ function transformProduct(product, { shortCode, includeExcelData = true } = {}) 
     compare_at_price: compareAtPrices.length ? Math.min(...compareAtPrices) : null,
     variants,
     price: prices.length ? Math.min(...prices) : null,
+    popularity_score,
     updated_at: isoToUnix(attrs.updatedAt),
     ...(includeExcelData
       ? {

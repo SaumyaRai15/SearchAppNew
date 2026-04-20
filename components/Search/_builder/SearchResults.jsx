@@ -42,9 +42,28 @@ const SORT_OPTIONS = [
     productIndexName: TYPESENSE_INDEXES.PRODUCTS_PRICE_HIGH_LOW,
     comboIndexName: TYPESENSE_INDEXES.COMBO_PRODUCTS_PRICE_HIGH_LOW,
   },
+  {
+    id: "POPULARITY_HIGH_LOW",
+    label: "Most popular",
+    productIndexName: TYPESENSE_INDEXES.PRODUCTS_POPULARITY_HIGH_LOW,
+    comboIndexName: TYPESENSE_INDEXES.COMBO_PRODUCTS_POPULARITY_HIGH_LOW,
+  },
+  // {
+  //   id: "POPULARITY_LOW_HIGH",
+  //   label: "Least popular",
+  //   productIndexName: TYPESENSE_INDEXES.PRODUCTS_POPULARITY_LOW_HIGH,
+  //   comboIndexName: TYPESENSE_INDEXES.COMBO_PRODUCTS_POPULARITY_LOW_HIGH,
+  // },
 ];
 
 const formatPrice = (n) => (n != null && !Number.isNaN(n) ? `${Math.round(n)}` : null);
+
+const formatPopularityScore = (n) => {
+  if (n == null || n === "") return null;
+  const num = Number(n);
+  if (!Number.isFinite(num)) return null;
+  return Math.round(num).toLocaleString("en-IN");
+};
 
 const getDiscountPercent = (price, compareAtPrice) => {
   if (price == null || compareAtPrice == null || compareAtPrice <= 0 || price >= compareAtPrice) return null;
@@ -263,27 +282,35 @@ function ResultsList({ sectionTitle, items, quantities, onOpenVariantSheet, empt
                   </div>
                 </div>
 
-                <div className="mt-2 flex items-baseline gap-[2px] flex-wrap">
-                  {formatPrice(product.price) && (
-                    <p className="text-[10px] text-[#292E2C]">
-                      ₹<span className="text-[16px]">{formatPrice(product.price)}</span>
-                    </p>
-                  )}
-
-                  {product.compare_at_price && product.compare_at_price > product.price && (
-                    <>
-                      <p className="text-[10px] text-[#9DA6B2]">
-                        ₹
-                        <span className="text-[12px] leading-[10px]  line-through">
-                          {formatPrice(product.compare_at_price)}
-                        </span>
+                <div className="mt-2 flex items-baseline gap-[6px] flex-wrap">
+                  <div className="gap-x-[2px] flex flex-wrap items-baseline ">
+                    {formatPrice(product.price) && (
+                      <p className="text-[10px] text-[#292E2C]">
+                        ₹<span className="text-[16px]">{formatPrice(product.price)}</span>
                       </p>
-                      {getDiscountPercent(product.price, product.compare_at_price) != null && (
-                        <span className="text-[12px] leading-[20px] font-medium text-[#D13F44]">
-                          -{getDiscountPercent(product.price, product.compare_at_price)}%
-                        </span>
-                      )}
-                    </>
+                    )}
+
+                    {product.compare_at_price && product.compare_at_price > product.price && (
+                      <>
+                        <p className="text-[10px] text-[#9DA6B2]">
+                          ₹
+                          <span className="text-[12px] leading-[10px]  line-through">
+                            {formatPrice(product.compare_at_price)}
+                          </span>
+                        </p>
+                        {getDiscountPercent(product.price, product.compare_at_price) != null && (
+                          <span className="text-[12px] leading-[20px] font-medium text-[#D13F44]">
+                            -{getDiscountPercent(product.price, product.compare_at_price)}%
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {product.popularity_score != null && Number(product.popularity_score) > 0 && (
+                    <span className="text-[12px] leading-[20px] text-[#7B818C]">
+                      · {formatPopularityScore(product.popularity_score)} sold
+                    </span>
                   )}
                 </div>
               </div>
