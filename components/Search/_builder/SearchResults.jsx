@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -13,7 +13,7 @@ import {
   useSearchBox,
   useSortBy,
 } from "react-instantsearch";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCartStore } from "../../../store/useCartStore";
 import {
   getPreviewProductsCache,
@@ -96,13 +96,6 @@ const StarRating = ({ rating }) => {
       ))}
     </div>
   );
-};
-
-const replaceSearchUrl = (search) => {
-  if (typeof window === "undefined") return;
-
-  const nextUrl = search ? `${window.location.pathname}${search}` : window.location.pathname;
-  window.history.replaceState(window.history.state, "", nextUrl);
 };
 
 function QueryAndSortSync({ queryText, sortBy }) {
@@ -345,7 +338,17 @@ const SearchResultsContent = ({ query }) => {
   // Support both string and suggestion object
   const searchText = typeof query === "string" ? query.trim() : query?.q?.trim() || "";
   const baseFilterBy = typeof query === "string" ? undefined : query?.filter_by || undefined;
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  /** Keeps Next.js `useSearchParams()` in sync (raw `history.replaceState` does not). */
+  const replaceSearchUrl = useCallback(
+    (search) => {
+      router.replace(search ? `${pathname}${search}` : pathname, { scroll: false });
+    },
+    [pathname, router],
+  );
   const { items: products } = useHits();
   const { status, results } = useInstantSearch();
   const isComboFocusedQuery = useMemo(() => prefersComboResults(searchText), [searchText]);
@@ -456,7 +459,7 @@ const SearchResultsContent = ({ query }) => {
     if (priceRange.max) params.set("price_max", priceRange.max);
 
     replaceSearchUrl(params.toString() ? `?${params.toString()}` : "");
-  }, [baseFilterBy, priceRange, searchText, selectedCategories, selectedCollections, sortBy]);
+  }, [baseFilterBy, priceRange, replaceSearchUrl, searchText, selectedCategories, selectedCollections, sortBy]);
 
   const toggleCategory = (category) => {
     setSelectedCategories((prev) =>

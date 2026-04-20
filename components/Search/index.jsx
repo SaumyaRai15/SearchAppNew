@@ -1,22 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import SearchBar from "./_builder/SearchBar";
 import SearchHomePage from "./_builder/SearchHomePage";
 import SearchSuggestionAndProducts from "./_builder/SearchSuggestionAndProducts";
 import SearchResults from "./_builder/SearchResults";
 
-const replaceSearchUrl = (search) => {
-  if (typeof window === "undefined") return;
-
-  const nextUrl = search ? `${window.location.pathname}${search}` : window.location.pathname;
-  window.history.replaceState(window.history.state, "", nextUrl);
-};
-
 const SearchIndex = () => {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  /** Keeps Next.js `useSearchParams()` in sync (raw `history.replaceState` does not). */
+  const replaceSearchUrl = useCallback(
+    (search) => {
+      router.replace(search ? `${pathname}${search}` : pathname, { scroll: false });
+    },
+    [pathname, router],
+  );
 
   const [recentSearches, setRecentSearches] = useState(null);
   const [recentProducts, setRecentProducts] = useState(null);
