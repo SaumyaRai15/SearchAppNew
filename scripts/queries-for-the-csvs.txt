@@ -1,0 +1,52 @@
+-- combo products with different skus
+select pm.sku, pm.product_title, pm.bundle_id, pm.variant_id, pm.product_id, pm.short_code, count(pb.bundle_id) as product_count
+from "Product_Master" pm
+         LEFT JOIN "Product_Bundle" pb ON pm.bundle_id = pb.bundle_id
+WHERE pm.bundle_id is not NULL
+  and is_active
+group by 1, 2, 3, 4, 5, 6
+having count(pb.bundle_id) > 1;
+
+
+-- single product with 1 unique sku
+select sku, product_title, short_code
+from "Product_Master" pm
+where sku not in (select pm.sku
+                  from "Product_Master" pm
+                           LEFT JOIN "Product_Bundle" pb ON pm.bundle_id = pb.bundle_id
+                  WHERE pm.bundle_id is not NULL
+                    and is_active
+                  group by 1
+                  having count(pb.bundle_id) > 1) and is_active
+
+
+-- combo products with different skus and no join
+SELECT
+    pm.sku AS combo_sku,
+    pm.product_title,
+    pm.bundle_id,
+    pm.variant_id,
+    pm.product_id,
+    pm.short_code,
+
+    pb.qty AS product_qty,
+    pb.variant_id AS bundle_variant_id,
+    pb.product_id AS bundle_product_id,
+
+    pm_child.sku AS bundle_item_sku   -- 👈 this is what you want
+
+FROM "Product_Master" pm
+
+LEFT JOIN "Product_Bundle" pb
+    ON pm.bundle_id = pb.bundle_id
+
+LEFT JOIN "Product_Master" pm_child   -- 👈 second join
+    ON pb.product_id = pm_child.product_id
+   AND pb.variant_id = pm_child.variant_id
+
+WHERE pm.bundle_id IS NOT NULL
+  AND pm.is_active
+
+
+-- order grouped sales data
+Select variant_id, sum(ordered_qty) from "Order_Items" where updated_at::date>='2026-03-20' and ordered_qty > 0 group by variant_id

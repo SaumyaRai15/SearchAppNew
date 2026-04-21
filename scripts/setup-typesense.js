@@ -3,6 +3,28 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const CURATION_SET_NAME = "product_combo_search_rules";
+
+/** Intent tokens; stripping "combo"/"combos" can leave q empty (e.g. "female combo" → ""). */
+const COMBO_OVERRIDE_TERMS = ["gift", "gifts", "kit", "kits", "set", "sets", "pack", "packs", "combo", "combos"];
+const GENDER_OVERRIDE_RULES = [
+  {
+    id: "gender-unisex",
+    terms: ["unisex"],
+    filter_by: "gender:=[unisex]",
+  },
+  {
+    id: "gender-men",
+    terms: ["men", "man", "male", "him", "boy"],
+    filter_by: "gender:=[men,man,male,him,boy]",
+  },
+  {
+    id: "gender-women",
+    terms: ["women", "woman", "female", "her", "girl"],
+    filter_by: "gender:=[women,woman,female,her,girl]",
+  },
+];
+
 const client = new Typesense.Client({
   nodes: [
     {
@@ -17,7 +39,7 @@ const client = new Typesense.Client({
 
 //delete collections
 async function resetCollections() {
-  const collections = ["products", "search_suggestions", "product_popularity"];
+  const collections = ["products", "combo_products", "search_suggestions", "product_popularity"];
 
   for (const name of collections) {
     try {
@@ -34,10 +56,12 @@ async function createCollections() {
   // PRODUCTS
   await client.collections().create({
     name: "products",
+    curation_sets: [CURATION_SET_NAME],
     enable_nested_fields: true,
     fields: [
       { name: "id", type: "string" },
       { name: "title", type: "string" },
+      { name: "short_code", type: "string", optional: true },
       { name: "subtitle", type: "string", optional: true },
       { name: "url", type: "string", optional: true },
       { name: "featured_image", type: "string", optional: true },
@@ -54,17 +78,52 @@ async function createCollections() {
       { name: "target_age_group", type: "string[]", facet: true, optional: true },
       { name: "benefits", type: "string[]", optional: true },
       { name: "safety_callouts", type: "string[]", optional: true },
-      { name: "audience", type: "string[]", facet: true, optional: true },
       { name: "product_type", type: "string[]", facet: true, optional: true },
       { name: "price", type: "float", facet: true, optional: true },
       { name: "compare_at_price", type: "float", facet: true, optional: true },
       { name: "variants", type: "object[]", optional: true, facet: true },
+      { name: "popularity_score", type: "int32", optional: true },
       { name: "updated_at", type: "int64" },
     ],
     default_sorting_field: "updated_at",
   });
 
   console.log("Created products collection");
+
+  // COMBO PRODUCTS
+  await client.collections().create({
+    name: "combo_products",
+    curation_sets: [CURATION_SET_NAME],
+    enable_nested_fields: true,
+    fields: [
+      { name: "id", type: "string" },
+      { name: "title", type: "string" },
+      { name: "short_code", type: "string", optional: true },
+      { name: "subtitle", type: "string", optional: true },
+      { name: "url", type: "string", optional: true },
+      { name: "featured_image", type: "string", optional: true },
+      { name: "rating", type: "float", optional: true },
+      { name: "collections", type: "string[]", facet: true, optional: true },
+      { name: "categories", type: "string[]", facet: true, optional: true },
+      { name: "concerns", type: "string[]", facet: true, optional: true },
+      { name: "sku", type: "string", optional: true },
+      { name: "ingredients", type: "string[]", optional: true },
+      { name: "additional_ingredients", type: "string[]", optional: true },
+      { name: "gender", type: "string[]", facet: true, optional: true },
+      { name: "skin_hair_type", type: "string[]", facet: true, optional: true },
+      { name: "seasonality", type: "string[]", facet: true, optional: true },
+      { name: "target_age_group", type: "string[]", facet: true, optional: true },
+      { name: "product_type", type: "string[]", facet: true, optional: true },
+      { name: "price", type: "float", facet: true, optional: true },
+      { name: "compare_at_price", type: "float", facet: true, optional: true },
+      { name: "variants", type: "object[]", optional: true, facet: true },
+      { name: "popularity_score", type: "int32", optional: true },
+      { name: "updated_at", type: "int64" },
+    ],
+    default_sorting_field: "updated_at",
+  });
+
+  console.log("Created combo_products collection");
 
   // SEARCH SUGGESTIONS
   await client.collections().create({
@@ -82,24 +141,61 @@ async function createCollections() {
   console.log("Created search_suggestions collection");
 
   // POPULARITY
-  await client.collections().create({
-    name: "product_popularity",
-    fields: [
-      { name: "id", type: "string" },
-      { name: "product_id", type: "string" },
-      { name: "DEL", type: "int32" },
-      { name: "BOM", type: "int32" },
-      { name: "BLR", type: "int32" },
-      { name: "GGN", type: "int32" },
-      { name: "title", type: "string", optional: true },
-    ],
+  // await client.collections().create({
+  //   name: "product_popularity",
+  //   fields: [
+  //     { name: "id", type: "string" },
+  //     { name: "product_id", type: "string" },
+  //     { name: "DEL", type: "int32" },
+  //     { name: "BOM", type: "int32" },
+  //     { name: "BLR", type: "int32" },
+  //     { name: "GGN", type: "int32" },
+  //     { name: "title", type: "string", optional: true },
+  //   ],
+  // });
+
+  // console.log("Created product_popularity collection");
+}
+
+async function createCurationSet() {
+  const items = [];
+
+  for (const term of COMBO_OVERRIDE_TERMS) {
+    items.push({
+      id: `combo-intent-${term}`,
+      rule: {
+        query: term,
+        match: "contains",
+      },
+      remove_matched_tokens: true,
+    });
+  }
+
+  // for (const ruleConfig of GENDER_OVERRIDE_RULES) {
+  //   for (const term of ruleConfig.terms) {
+  //     items.push({
+  //       id: `${ruleConfig.id}-${term}`,
+  //       rule: {
+  //         query: term,
+  //         match: "contains",
+  //       },
+  //       filter_by: ruleConfig.filter_by,
+  //       remove_matched_tokens: false,
+  //     });
+  //   }
+  // }
+
+  await client.curationSets(CURATION_SET_NAME).upsert({
+    name: CURATION_SET_NAME,
+    items,
   });
 
-  console.log("Created product_popularity collection");
+  console.log(`Created/updated curation set: ${CURATION_SET_NAME}`);
 }
 
 async function run() {
   await resetCollections();
+  await createCurationSet();
   await createCollections();
   console.log("Typesense setup complete");
 }

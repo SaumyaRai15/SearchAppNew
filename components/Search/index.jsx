@@ -7,11 +7,31 @@ import SearchHomePage from "./_builder/SearchHomePage";
 import SearchSuggestionAndProducts from "./_builder/SearchSuggestionAndProducts";
 import SearchResults from "./_builder/SearchResults";
 
+/** Updates the address bar without App Router navigation (avoids RSC `search?_rsc=` refetches per keystroke). */
 const replaceSearchUrl = (search) => {
   if (typeof window === "undefined") return;
 
   const nextUrl = search ? `${window.location.pathname}${search}` : window.location.pathname;
   window.history.replaceState(window.history.state, "", nextUrl);
+};
+
+/** Display label for a recent-search chip (string legacy or `{ label, ... }`). */
+const getRecentSearchLabel = (entry) =>
+  typeof entry === "string" ? entry : (entry?.label ?? "");
+
+/**
+ * Normalizes localStorage entries: legacy strings become plain text searches;
+ * objects may include `sq` (Typesense query, may be "") and `filter_by`.
+ */
+const normalizeRecentEntry = (entry) => {
+  if (typeof entry === "string") {
+    const label = entry.trim();
+    return { label, sq: label, filter_by: undefined };
+  }
+  const label = (entry?.label ?? "").trim();
+  const hasSq = Object.prototype.hasOwnProperty.call(entry, "sq");
+  const sq = hasSq ? String(entry.sq ?? "").trim() : label;
+  return { label, sq, filter_by: entry?.filter_by };
 };
 
 const SearchIndex = () => {
@@ -21,11 +41,16 @@ const SearchIndex = () => {
   const [recentSearches, setRecentSearches] = useState(null);
   const [recentProducts, setRecentProducts] = useState(null);
 
-  const initialQ = searchParams.get("q") || "";
+  const qDisplay = searchParams.get("q") ?? "";
+  const hasSq = searchParams.has("sq");
+  /** Typesense search string: explicit `sq` when present (may be empty for filter-only suggestions), else same as `q`. */
+  const typesenseQ = hasSq ? (searchParams.get("sq") ?? "") : qDisplay;
   const initialFilterBy = searchParams.get("filter_by") || null;
 
-  const [searchValue, setSearchValue] = useState(initialQ);
-  const [isResultsOpen, setIsResultsOpen] = useState(!!initialQ);
+  const hasResultsContext = Boolean(qDisplay.trim() || initialFilterBy);
+
+  const [searchValue, setSearchValue] = useState(qDisplay);
+  const [isResultsOpen, setIsResultsOpen] = useState(hasResultsContext);
   const [isSearchLoading, setIsSearchLoading] = useState(false);
 
   const refreshHomePageData = () => {
@@ -49,18 +74,72 @@ const SearchIndex = () => {
     }
   }, [searchValue, isResultsOpen]);
 
-  const addToRecentSearches = (label) => {
+  const [resultsQuery, setResultsQuery] = useState(() =>
+    hasResultsContext
+      ? {
+          q: typesenseQ,
+          filter_by: initialFilterBy || undefined,
+          ...(hasSq ? { displayQ: qDisplay } : {}),
+        }
+      : null,
+  );
+
+  const addToRecentSearches = (payload) => {
+    const label =
+      typeof payload === "string" ? payload.trim() : (payload?.label ?? "").trim();
+    if (!label) return;
+
+    const entry =
+      typeof payload === "string"
+        ? { label, sq: label }
+        : {
+            label,
+            ...(Object.prototype.hasOwnProperty.call(payload, "sq")
+              ? { sq: String(payload.sq ?? "") }
+              : { sq: label }),
+            ...(payload.filter_by ? { filter_by: payload.filter_by } : {}),
+          };
+
     try {
       const stored = JSON.parse(localStorage.getItem("recent_searches") || "[]");
-      const filtered = stored.filter((s) => s !== label);
-      const updated = [label, ...filtered].slice(0, 8);
+      const filtered = stored.filter((s) => getRecentSearchLabel(s) !== label);
+      const updated = [entry, ...filtered].slice(0, 8);
       localStorage.setItem("recent_searches", JSON.stringify(updated));
     } catch {}
   };
 
-  const [resultsQuery, setResultsQuery] = useState(
-    initialQ ? { q: initialQ, filter_by: initialFilterBy || undefined } : null,
-  );
+  /** Opens results with optional `sq` / `filter_by` (same contract as suggestion clicks). */
+  const openStructuredSearch = ({ label, sq, filter_by, persistRecent = true }) => {
+    const labelTrim = (label ?? "").trim();
+    const sqDefined = sq !== undefined;
+    const sqTrim = sqDefined ? String(sq ?? "").trim() : labelTrim;
+
+    if (!labelTrim && !filter_by) return;
+
+    if (persistRecent && labelTrim) {
+      addToRecentSearches(
+        sqDefined || filter_by ? { label: labelTrim, sq: sqTrim, filter_by } : { label: labelTrim },
+      );
+    }
+
+    setSearchValue(labelTrim);
+    setResultsQuery({
+      q: sqTrim,
+      filter_by,
+      ...(labelTrim !== sqTrim ? { displayQ: labelTrim } : {}),
+    });
+    setIsResultsOpen(true);
+
+    const params = new URLSearchParams();
+    params.set("q", labelTrim);
+    if (labelTrim !== sqTrim) {
+      params.set("sq", sqTrim);
+    }
+    if (filter_by) {
+      params.set("filter_by", filter_by);
+    }
+    replaceSearchUrl(`?${params.toString()}`);
+  };
 
   const clearSearchState = () => {
     setSearchValue("");
@@ -73,32 +152,28 @@ const SearchIndex = () => {
   const openSearchResults = (nextQuery) => {
     const query = nextQuery.trim();
     if (!query) return;
-
-    addToRecentSearches(query);
-    setSearchValue(query);
-    setResultsQuery({ q: query });
-    setIsResultsOpen(true);
-    replaceSearchUrl(`?q=${encodeURIComponent(query)}`);
+    openStructuredSearch({ label: query });
   };
 
   const handleSubmitSearch = () => {
     openSearchResults(searchValue);
   };
 
-  const handleRecentSearchClick = (query) => {
-    openSearchResults(query);
+  const handleRecentSearchClick = (entry) => {
+    const { label, sq, filter_by } = normalizeRecentEntry(entry);
+    if (!label && !filter_by) return;
+    openStructuredSearch({ label, sq, filter_by, persistRecent: true });
   };
 
   const handleSuggestionClick = (suggestion) => {
-    addToRecentSearches(suggestion.label);
-    setSearchValue(suggestion.label);
-    setResultsQuery({ q: suggestion.query, filter_by: suggestion.filter_by });
-    setIsResultsOpen(true);
-
-    const params = new URLSearchParams();
-    params.set("q", suggestion.query);
-    if (suggestion.filter_by) params.set("filter_by", suggestion.filter_by);
-    replaceSearchUrl(`?${params.toString()}`);
+    const label = (suggestion.label ?? "").trim();
+    const sq = (suggestion.query ?? "").trim();
+    openStructuredSearch({
+      label,
+      sq,
+      filter_by: suggestion.filter_by,
+      persistRecent: true,
+    });
   };
 
   const handleBack = () => {

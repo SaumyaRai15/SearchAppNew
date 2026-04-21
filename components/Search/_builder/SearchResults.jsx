@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -17,6 +17,7 @@ import { useSearchParams } from "next/navigation";
 import { useCartStore } from "../../../store/useCartStore";
 import {
   getPreviewProductsCache,
+  prefersComboResults,
   typesenseSearchClient,
   TYPESENSE_INDEXES,
 } from "../../../lib/typesenseInstantsearch";
@@ -32,16 +33,25 @@ const SORT_OPTIONS = [
   {
     id: "PRICE_LOW_HIGH",
     label: "Low to High",
-    indexName: TYPESENSE_INDEXES.PRODUCTS_PRICE_LOW_HIGH,
+    productIndexName: TYPESENSE_INDEXES.PRODUCTS_PRICE_LOW_HIGH,
+    comboIndexName: TYPESENSE_INDEXES.COMBO_PRODUCTS_PRICE_LOW_HIGH,
   },
   {
     id: "PRICE_HIGH_LOW",
     label: "High to low",
-    indexName: TYPESENSE_INDEXES.PRODUCTS_PRICE_HIGH_LOW,
+    productIndexName: TYPESENSE_INDEXES.PRODUCTS_PRICE_HIGH_LOW,
+    comboIndexName: TYPESENSE_INDEXES.COMBO_PRODUCTS_PRICE_HIGH_LOW,
   },
 ];
 
 const formatPrice = (n) => (n != null && !Number.isNaN(n) ? `${Math.round(n)}` : null);
+
+const formatPopularityScore = (n) => {
+  if (n == null || n === "") return null;
+  const num = Number(n);
+  if (!Number.isFinite(num)) return null;
+  return Math.round(num).toLocaleString("en-IN");
+};
 
 const getDiscountPercent = (price, compareAtPrice) => {
   if (price == null || compareAtPrice == null || compareAtPrice <= 0 || price >= compareAtPrice) return null;
@@ -76,13 +86,6 @@ const StarRating = ({ rating }) => {
   );
 };
 
-const replaceSearchUrl = (search) => {
-  if (typeof window === "undefined") return;
-
-  const nextUrl = search ? `${window.location.pathname}${search}` : window.location.pathname;
-  window.history.replaceState(window.history.state, "", nextUrl);
-};
-
 function QueryAndSortSync({ queryText, sortBy }) {
   const { query, refine: refineQuery } = useSearchBox();
   const { refine: refineSort, currentRefinement } = useSortBy({
@@ -90,7 +93,7 @@ function QueryAndSortSync({ queryText, sortBy }) {
       { label: "Relevance", value: TYPESENSE_INDEXES.PRODUCTS },
       ...SORT_OPTIONS.map((option) => ({
         label: option.label,
-        value: option.indexName,
+        value: option.productIndexName,
       })),
     ],
   });
@@ -102,7 +105,8 @@ function QueryAndSortSync({ queryText, sortBy }) {
   }, [query, queryText, refineQuery]);
 
   useEffect(() => {
-    const nextIndexName = SORT_OPTIONS.find((option) => option.id === sortBy)?.indexName ?? TYPESENSE_INDEXES.PRODUCTS;
+    const nextIndexName =
+      SORT_OPTIONS.find((option) => option.id === sortBy)?.productIndexName ?? TYPESENSE_INDEXES.PRODUCTS;
 
     if (currentRefinement !== nextIndexName) {
       refineSort(nextIndexName);
@@ -134,16 +138,215 @@ function FacetCollector({ onUpdate }) {
   return null;
 }
 
+function ComboResultsCollector({ onUpdate }) {
+  const { items } = useHits();
+  const { status } = useInstantSearch();
+
+  useEffect(() => {
+    onUpdate({ items, status });
+  }, [items, onUpdate, status]);
+
+  return null;
+}
+
+function mergeFacetItems(...facetGroups) {
+  const mergedCounts = new Map();
+
+  facetGroups.flat().forEach(({ value, count }) => {
+    mergedCounts.set(value, (mergedCounts.get(value) || 0) + count);
+  });
+
+  return Array.from(mergedCounts.entries())
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+}
+
+function ResultsList({ sectionTitle, items, quantities, onOpenVariantSheet, emptyMessage, showEmptyState }) {
+  if (items.length === 0 && !showEmptyState) {
+    return null;
+  }
+
+  return (
+    <>
+      {sectionTitle ? (
+        <div className="px-1 text-[12px] font-bold uppercase tracking-[0.08em] text-[#7B818C]">{sectionTitle}</div>
+      ) : null}
+      {items.length === 0 ? (
+        <div className="py-16 text-center text-sm text-gray-500">{emptyMessage}</div>
+      ) : (
+        items.map((product) => {
+          const hasVariants = product.variants?.length > 0;
+          const displayRating = getDisplayRating(product.rating);
+          const firstVariant = product.variants?.[0]?.attributes;
+          const totalVariantQty = hasVariants
+            ? product.variants.reduce((sum, v) => {
+                const vid = v.attributes?.shopifyVariantId;
+                return sum + (vid ? (quantities[vid] ?? 0) : 0);
+              }, 0)
+            : 0;
+
+          return (
+            <div key={product.id} className="flex gap-3 bg-white py-3 border-b border-gray-100">
+              <Link
+                href={`https://nathabit.in/products/${product.url}`}
+                prefetch={false}
+                target="_blank"
+                onClick={() => addToRecentlyViewed(product)}
+              >
+                <div className="relative w-[72px] h-[111px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                  <Image
+                    src={product.featured_image}
+                    alt={product.short_code || product.title}
+                    fill
+                    unoptimized
+                    loading="eager"
+                  />
+                </div>
+              </Link>
+              <div className="flex-1 flex flex-col min-w-0">
+                <div className="flex justify-between gap-3">
+                  <div className="flex flex-col gap-[2px]">
+                    <div className="text-[14px] text-[#292E2C] leading-[20px]">
+                      {product.title || product.short_code}
+                    </div>
+
+                    <div className="text-[12px] text-[#7B818C] leading-[16px]">{product.subtitle}</div>
+
+                    <div className="flex gap-x-2 mt-[6px]">
+                      <p className="text-[12px] leading-[16px] text-[#676B73] bg-[#F5F7FA] px-[4px]">
+                        {firstVariant?.measurementValue && firstVariant?.measurementUnit
+                          ? `${firstVariant.measurementValue}${firstVariant.measurementUnit}`
+                          : "1 unit"}
+                      </p>
+                      <div className="flex gap-x-2 bg-[#F5F7FA] px-[4px] rounded-[2px] w-fit">
+                        <StarRating rating={product.rating} />
+                        <p className="text-[12px] leading-[16px] text-[#676B73]">({displayRating})</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`flex flex-col w-[72px] h-[58px] rounded-[8px] items-center flex-shrink-0 bg-[#FCF8F7]`}
+                  >
+                    {hasVariants && (
+                      <>
+                        {totalVariantQty === 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpenVariantSheet(product)}
+                            className="w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#F0C3B4] border bg-[#FCF1ED] text-[14px] leading-[20px] font-black text-[#C4512B]"
+                          >
+                            ADD
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onOpenVariantSheet(product)}
+                            className="flex items-center justify-around w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#C4512B] border text-[14px] leading-[20px] font-black bg-white text-[#C4512B]"
+                          >
+                            <span>{totalVariantQty}</span>
+                            <Image
+                              src="/svg/chevron-down-orange.svg"
+                              width={7}
+                              height={4}
+                              alt=""
+                              aria-hidden
+                              className="absolute right-[12px]"
+                            />
+                          </button>
+                        )}
+                        <p className="text-[10px]  leading-[12px] rounded-br-[8p] px-[8px] pt-[2px] pb-[4px] rounded-bl-[8px] font-medium bg-[#FCF8F7] text-[#C4512B]">
+                          {product.variants.length} {product.variants.length > 1 ? "Options" : "Option"}{" "}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-baseline gap-[6px] flex-wrap">
+                  <div className="gap-x-[2px] flex flex-wrap items-baseline ">
+                    {formatPrice(product.price) && (
+                      <p className="text-[10px] text-[#292E2C]">
+                        ₹<span className="text-[16px]">{formatPrice(product.price)}</span>
+                      </p>
+                    )}
+
+                    {product.compare_at_price && product.compare_at_price > product.price && (
+                      <>
+                        <p className="text-[10px] text-[#9DA6B2]">
+                          ₹
+                          <span className="text-[12px] leading-[10px]  line-through">
+                            {formatPrice(product.compare_at_price)}
+                          </span>
+                        </p>
+                        {getDiscountPercent(product.price, product.compare_at_price) != null && (
+                          <span className="text-[12px] leading-[20px] font-medium text-[#D13F44]">
+                            -{getDiscountPercent(product.price, product.compare_at_price)}%
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {product.popularity_score != null && Number(product.popularity_score) > 0 && (
+                    <span className="text-[12px] leading-[20px] text-[#7B818C]">
+                      · {formatPopularityScore(product.popularity_score)} sold
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </>
+  );
+}
+
+function ComboResultsSection({ combos, status, quantities, onOpenVariantSheet, shouldRender = true }) {
+  if (!shouldRender) {
+    return null;
+  }
+
+  return (
+    <div className="mt-6">
+      <ResultsList
+        sectionTitle="Combos"
+        items={combos}
+        quantities={quantities}
+        onOpenVariantSheet={onOpenVariantSheet}
+        emptyMessage="No combos found for this search."
+        showEmptyState={status === "idle"}
+      />
+    </div>
+  );
+}
+
+/** Updates the address bar without App Router navigation (avoids RSC `search?_rsc=` refetches). */
+const replaceSearchUrl = (search) => {
+  if (typeof window === "undefined") return;
+
+  const nextUrl = search ? `${window.location.pathname}${search}` : window.location.pathname;
+  window.history.replaceState(window.history.state, "", nextUrl);
+};
+
 const SearchResultsContent = ({ query }) => {
-  // Support both string and suggestion object
+  // Support both string and suggestion object (`displayQ` = address-bar / bar text when it differs from Typesense `q`)
   const searchText = typeof query === "string" ? query.trim() : query?.q?.trim() || "";
   const baseFilterBy = typeof query === "string" ? undefined : query?.filter_by || undefined;
+  const displayForUrl =
+    typeof query === "object" && query?.displayQ != null ? String(query.displayQ).trim() : searchText;
   const searchParams = useSearchParams();
   const { items: products } = useHits();
   const { status, results } = useInstantSearch();
+  const isComboFocusedQuery = useMemo(() => prefersComboResults(searchText), [searchText]);
+  const productHitsPerPage = isComboFocusedQuery ? 5 : 15;
+  const comboHitsPerPage = isComboFocusedQuery ? 15 : 5;
 
   // Initialise all filter/sort state from URL so a direct link loads correctly
   const [sortBy, setSortBy] = useState(() => searchParams.get("sort") || "");
+  const selectedSortOption = SORT_OPTIONS.find((option) => option.id === sortBy);
+  const comboIndexName = selectedSortOption?.comboIndexName ?? TYPESENSE_INDEXES.COMBO_PRODUCTS;
   const [selectedCategories, setSelectedCategories] = useState(() => {
     const cats = searchParams.get("categories");
     return cats ? cats.split(",").filter(Boolean) : [];
@@ -159,7 +362,9 @@ const SearchResultsContent = ({ query }) => {
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [variantSheetProduct, setVariantSheetProduct] = useState(null);
-  const [facetData, setFacetData] = useState({ categories: [], collections: [] });
+  const [productFacetData, setProductFacetData] = useState({ categories: [], collections: [] });
+  const [comboFacetData, setComboFacetData] = useState({ categories: [], collections: [] });
+  const [comboResultsData, setComboResultsData] = useState({ items: [], status: "idle" });
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [cachedPreviewProducts, setCachedPreviewProducts] = useState(() => getPreviewProductsCache(searchText));
   const cartItems = useCartStore((state) => state.cartItems);
@@ -170,6 +375,20 @@ const SearchResultsContent = ({ query }) => {
     () => Object.fromEntries(Object.entries(cartItems || {}).map(([variantId, item]) => [variantId, item?.qty || 0])),
     [cartItems],
   );
+
+  /** `useSearchParams()` can lag behind `replaceState`; align once from the real URL (fixes sort/filter after remount). */
+  useLayoutEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    setSortBy(p.get("sort") || "");
+    const cats = p.get("categories");
+    setSelectedCategories(cats ? cats.split(",").filter(Boolean) : []);
+    const cols = p.get("collections");
+    setSelectedCollections(cols ? cols.split(",").filter(Boolean) : []);
+    setPriceRange({
+      min: p.get("price_min") || "",
+      max: p.get("price_max") || "",
+    });
+  }, []);
 
   const combinedFilterBy = useMemo(() => {
     const filters = [];
@@ -188,8 +407,16 @@ const SearchResultsContent = ({ query }) => {
 
     return filters.join(" && ") || undefined;
   }, [baseFilterBy, selectedCategories, selectedCollections]);
-  const facetCategories = facetData.categories ?? [];
-  const facetCollections = facetData.collections ?? [];
+  const facetCategories = useMemo(
+    () => mergeFacetItems(productFacetData.categories ?? [], comboFacetData.categories ?? []),
+    [comboFacetData.categories, productFacetData.categories],
+  );
+  const facetCollections = useMemo(
+    () => mergeFacetItems(productFacetData.collections ?? [], comboFacetData.collections ?? []),
+    [comboFacetData.collections, productFacetData.collections],
+  );
+  const comboResults = comboResultsData.items ?? [];
+  const comboResultsStatus = comboResultsData.status;
   const isSearchLoading = status === "loading" || status === "stalled";
 
   // Reset filters (but not sort) whenever the search query changes
@@ -201,6 +428,7 @@ const SearchResultsContent = ({ query }) => {
       setSelectedCollections([]);
       setPriceRange({ min: "", max: "" });
       setCachedPreviewProducts(getPreviewProductsCache(searchText));
+      setComboResultsData({ items: [], status: "loading" });
       setHasLoadedOnce(false);
     }
   }, [searchText]);
@@ -224,7 +452,11 @@ const SearchResultsContent = ({ query }) => {
     }
 
     const params = new URLSearchParams();
-    if (searchText) params.set("q", searchText);
+    const qParam = displayForUrl || searchText;
+    if (qParam) params.set("q", qParam);
+    if (searchText !== displayForUrl) {
+      params.set("sq", searchText);
+    }
     if (baseFilterBy) params.set("filter_by", baseFilterBy);
     if (sortBy) params.set("sort", sortBy);
     if (selectedCategories.length) params.set("categories", selectedCategories.join(","));
@@ -233,7 +465,7 @@ const SearchResultsContent = ({ query }) => {
     if (priceRange.max) params.set("price_max", priceRange.max);
 
     replaceSearchUrl(params.toString() ? `?${params.toString()}` : "");
-  }, [baseFilterBy, priceRange, searchText, selectedCategories, selectedCollections, sortBy]);
+  }, [baseFilterBy, displayForUrl, priceRange, searchText, selectedCategories, selectedCollections, sortBy]);
 
   const toggleCategory = (category) => {
     setSelectedCategories((prev) =>
@@ -312,11 +544,21 @@ const SearchResultsContent = ({ query }) => {
     <div className="relative max-h-full bg-white pb-[48px]">
       <QueryAndSortSync queryText={searchText} sortBy={sortBy} />
 
-      <Configure filters={combinedFilterBy} hitsPerPage={10} maxValuesPerFacet={200} />
+      <Configure filters={combinedFilterBy} hitsPerPage={productHitsPerPage} maxValuesPerFacet={200} />
 
       <Index indexName={TYPESENSE_INDEXES.PRODUCTS}>
         <Configure filters={baseFilterBy} hitsPerPage={1} maxValuesPerFacet={200} />
-        <FacetCollector onUpdate={setFacetData} />
+        <FacetCollector onUpdate={setProductFacetData} />
+      </Index>
+
+      <Index indexName={TYPESENSE_INDEXES.COMBO_PRODUCTS}>
+        <Configure filters={baseFilterBy} hitsPerPage={1} maxValuesPerFacet={200} />
+        <FacetCollector onUpdate={setComboFacetData} />
+      </Index>
+
+      <Index indexName={comboIndexName}>
+        <Configure filters={combinedFilterBy} hitsPerPage={comboHitsPerPage} />
+        <ComboResultsCollector onUpdate={setComboResultsData} />
       </Index>
 
       {shouldShowSkeleton ? (
@@ -392,118 +634,44 @@ const SearchResultsContent = ({ query }) => {
               </div>
             )}
 
-            {displayProducts.map((product) => {
-              const hasVariants = product.variants?.length > 0;
-              const displayRating = getDisplayRating(product.rating);
-              // const quantity = quantities[product.id] ?? 0;
-              const totalVariantQty = hasVariants
-                ? product.variants.reduce((sum, v) => {
-                    const vid = v.attributes?.shopifyVariantId;
-                    return sum + (vid ? (quantities[vid] ?? 0) : 0);
-                  }, 0)
-                : 0;
+            {isComboFocusedQuery ? (
+              <>
+                <ComboResultsSection
+                  combos={comboResults}
+                  status={comboResultsStatus}
+                  quantities={quantities}
+                  onOpenVariantSheet={setVariantSheetProduct}
+                  shouldRender={!shouldShowSkeleton}
+                />
 
-              return (
-                <div key={product.id} className="flex gap-3 bg-white py-3 border-b border-gray-100">
-                  <Link
-                    href={`https://nathabit.in/products/${product.url}`}
-                    prefetch={false}
-                    target="_blank"
-                    onClick={() => addToRecentlyViewed(product)}
-                  >
-                    <div className="relative w-[72px] h-[111px] rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                      <Image src={product.featured_image} alt={product.title} fill unoptimized loading="eager" />
-                    </div>
-                  </Link>
-                  <div className="flex-1 flex flex-col min-w-0">
-                    <div className="flex justify-between gap-3">
-                      <div className="flex flex-col gap-[2px]">
-                        <div className="text-[14px] text-[#292E2C] leading-[20px]">{product.title}</div>
+                <ResultsList
+                  sectionTitle="Products"
+                  items={displayProducts}
+                  quantities={quantities}
+                  onOpenVariantSheet={setVariantSheetProduct}
+                  emptyMessage="No products found for this search."
+                  showEmptyState={hasLoadedOnce && filteredProducts.length === 0}
+                />
+              </>
+            ) : (
+              <>
+                <ResultsList
+                  sectionTitle="Products"
+                  items={displayProducts}
+                  quantities={quantities}
+                  onOpenVariantSheet={setVariantSheetProduct}
+                  emptyMessage="No products found for this search."
+                  showEmptyState={hasLoadedOnce && filteredProducts.length === 0}
+                />
 
-                        <div className="text-[12px] text-[#7B818C] leading-[16px]">{product.subtitle}</div>
-
-                        <div className="flex gap-x-2 mt-[6px]">
-                          <p className="text-[12px] leading-[16px] text-[#676B73] bg-[#F5F7FA] px-[4px]">
-                            {product.variants[0].attributes.measurementValue &&
-                            product.variants[0].attributes.measurementUnit
-                              ? `${product.variants[0].attributes.measurementValue}${product.variants[0].attributes.measurementUnit}`
-                              : "1 unit"}
-                          </p>
-                          <div className="flex gap-x-2 bg-[#F5F7FA] px-[4px] rounded-[2px] w-fit">
-                            <StarRating rating={product.rating} />
-                            <p className="text-[12px] leading-[16px] text-[#676B73]">({displayRating})</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div
-                        className={`flex flex-col w-[72px] h-[58px] rounded-[8px] items-center flex-shrink-0 bg-[#FCF8F7]`}
-                      >
-                        {hasVariants && (
-                          <>
-                            {totalVariantQty === 0 ? (
-                              <button
-                                type="button"
-                                onClick={() => setVariantSheetProduct(product)}
-                                className="w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#F0C3B4] border bg-[#FCF1ED] text-[14px] leading-[20px] font-black text-[#C4512B]"
-                              >
-                                ADD
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setVariantSheetProduct(product)}
-                                className="flex items-center justify-around w-[72px] h-[40px] p-[4px] rounded-[8px] border-[#C4512B] border text-[14px] leading-[20px] font-black bg-white text-[#C4512B]"
-                              >
-                                <span>{totalVariantQty}</span>
-                                <Image
-                                  src="/svg/chevron-down-orange.svg"
-                                  width={7}
-                                  height={4}
-                                  alt=""
-                                  aria-hidden
-                                  className="absolute right-[12px]"
-                                />
-                              </button>
-                            )}
-                            <p className="text-[10px]  leading-[12px] rounded-br-[8p] px-[8px] pt-[2px] pb-[4px] rounded-bl-[8px] font-medium bg-[#FCF8F7] text-[#C4512B]">
-                              {product.variants.length} {product.variants.length > 1 ? "Options" : "Option"}{" "}
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="mt-2 flex items-baseline gap-[2px] flex-wrap">
-                      {formatPrice(product.price) && (
-                        <p className="text-[10px] text-[#292E2C]">
-                          ₹<span className="text-[16px]">{formatPrice(product.price)}</span>
-                        </p>
-                      )}
-
-                      {product.compare_at_price && product.compare_at_price > product.price && (
-                        <>
-                          <p className="text-[10px] text-[#9DA6B2]">
-                            ₹
-                            <span className="text-[12px] leading-[10px]  line-through">
-                              {formatPrice(product.compare_at_price)}
-                            </span>
-                          </p>
-                          {getDiscountPercent(product.price, product.compare_at_price) != null && (
-                            <span className="text-[12px] leading-[20px] font-medium text-[#D13F44]">
-                              -{getDiscountPercent(product.price, product.compare_at_price)}%
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-            {hasLoadedOnce && filteredProducts.length === 0 && (
-              <div className="py-16 text-center text-sm text-gray-500">No products found for this search.</div>
+                <ComboResultsSection
+                  combos={comboResults}
+                  status={comboResultsStatus}
+                  quantities={quantities}
+                  onOpenVariantSheet={setVariantSheetProduct}
+                  shouldRender={!shouldShowSkeleton}
+                />
+              </>
             )}
           </div>
           {/* Sort & Filter bar */}
@@ -564,6 +732,7 @@ const SearchResults = ({ query }) => {
       indexName={TYPESENSE_INDEXES.PRODUCTS}
       initialUiState={{
         [TYPESENSE_INDEXES.PRODUCTS]: { query: searchText },
+        [TYPESENSE_INDEXES.COMBO_PRODUCTS]: { query: searchText },
       }}
     >
       <SearchResultsContent query={query} />

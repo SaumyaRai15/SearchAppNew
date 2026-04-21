@@ -2,6 +2,11 @@ import Image from "next/image";
 import { RecentSearchesSkeleton, RecentProductsSkeleton } from "../../Loaders/SearchHomePageSkeleton";
 import Link from "next/link";
 
+function recentSearchChipLabel(item) {
+  if (typeof item === "string") return item;
+  return item?.label ?? "";
+}
+
 export default function SearchHomePage({ recentSearches, recentProducts, onRecentSearchClick }) {
   return (
     <>
@@ -13,14 +18,14 @@ export default function SearchHomePage({ recentSearches, recentProducts, onRecen
           <p className="mb-3 text-[12px] leading-4 tracking-[0.23px]">Recent searches</p>
 
           <div className="flex flex-wrap gap-2">
-            {recentSearches.map((item) => (
+            {recentSearches.map((item, index) => (
               <button
-                key={item}
+                key={`${recentSearchChipLabel(item)}-${index}`}
                 type="button"
                 onClick={() => onRecentSearchClick?.(item)}
                 className="bg-white px-[8px] text-[#4B4D52] py-2 rounded-[4px] leading-4 text-[14px] tracking-[0.23px]"
               >
-                {item}
+                {recentSearchChipLabel(item)}
               </button>
             ))}
           </div>
@@ -49,7 +54,7 @@ export default function SearchHomePage({ recentSearches, recentProducts, onRecen
                 <div className="relative w-[112px] h-[149px] mb-2">
                   <Image
                     src={product.featured_image}
-                    alt={product.title}
+                    alt={product.short_code || product.title}
                     fill
                     // sizes="112px"
                     className="rounded-[8px]"
@@ -58,7 +63,7 @@ export default function SearchHomePage({ recentSearches, recentProducts, onRecen
                   />
                 </div>
 
-                <div className="text-[14px] leading-[20px] mb-1 line-clamp-2">{product.title}</div>
+                <div className="text-[14px] leading-[20px] mb-1 line-clamp-2">{product.short_code || product.title}</div>
 
                 <div className="text-[12px] leading-[16px] text-[#7B818C] mb-1 truncate">{product.subtitle}</div>
 
