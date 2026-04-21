@@ -5,6 +5,14 @@ dotenv.config();
 
 const CURATION_SET_NAME = "product_combo_search_rules";
 
+/** Multi-way: any of these tokens in `q` also match the others in indexed text (e.g. malai ↔ cream ↔ moisturiser). */
+const SKIN_CREAM_SYNONYM_SET_NAME = "skin_cream_synonyms";
+
+/** Multi-way: cleanser / face wash phrasing. */
+const FACE_CLEANSER_SYNONYM_SET_NAME = "face_cleanser_synonyms";
+
+const PRODUCT_SYNONYM_SETS = [SKIN_CREAM_SYNONYM_SET_NAME, FACE_CLEANSER_SYNONYM_SET_NAME];
+
 /** Intent tokens; stripping "combo"/"combos" can leave q empty (e.g. "female combo" → ""). */
 const COMBO_OVERRIDE_TERMS = ["gift", "gifts", "kit", "kits", "set", "sets", "pack", "packs", "combo", "combos"];
 const GENDER_OVERRIDE_RULES = [
@@ -57,6 +65,7 @@ async function createCollections() {
   await client.collections().create({
     name: "products",
     curation_sets: [CURATION_SET_NAME],
+    synonym_sets: PRODUCT_SYNONYM_SETS,
     enable_nested_fields: true,
     fields: [
       { name: "id", type: "string" },
@@ -94,6 +103,7 @@ async function createCollections() {
   await client.collections().create({
     name: "combo_products",
     curation_sets: [CURATION_SET_NAME],
+    synonym_sets: PRODUCT_SYNONYM_SETS,
     enable_nested_fields: true,
     fields: [
       { name: "id", type: "string" },
@@ -193,9 +203,37 @@ async function createCurationSet() {
   console.log(`Created/updated curation set: ${CURATION_SET_NAME}`);
 }
 
+async function createSkinCreamSynonymSet() {
+  await client.synonymSets(SKIN_CREAM_SYNONYM_SET_NAME).upsert({
+    items: [
+      {
+        id: "cream-malai-moisturiser",
+        synonyms: ["cream", "malai", "moisturiser", "moisturizer"],
+      },
+    ],
+  });
+
+  console.log(`Created/updated synonym set: ${SKIN_CREAM_SYNONYM_SET_NAME}`);
+}
+
+async function createFaceCleanserSynonymSet() {
+  await client.synonymSets(FACE_CLEANSER_SYNONYM_SET_NAME).upsert({
+    items: [
+      {
+        id: "cleanser-face-wash",
+        synonyms: ["cleanser", "face wash", "facial cleanser", "face cleanser"],
+      },
+    ],
+  });
+
+  console.log(`Created/updated synonym set: ${FACE_CLEANSER_SYNONYM_SET_NAME}`);
+}
+
 async function run() {
   await resetCollections();
   await createCurationSet();
+  await createSkinCreamSynonymSet();
+  await createFaceCleanserSynonymSet();
   await createCollections();
   console.log("Typesense setup complete");
 }
