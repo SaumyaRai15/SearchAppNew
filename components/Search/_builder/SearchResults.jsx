@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -13,7 +13,7 @@ import {
   useSearchBox,
   useSortBy,
 } from "react-instantsearch";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useCartStore } from "../../../store/useCartStore";
 import {
   getPreviewProductsCache,
@@ -42,18 +42,6 @@ const SORT_OPTIONS = [
     productIndexName: TYPESENSE_INDEXES.PRODUCTS_PRICE_HIGH_LOW,
     comboIndexName: TYPESENSE_INDEXES.COMBO_PRODUCTS_PRICE_HIGH_LOW,
   },
-  {
-    id: "POPULARITY_HIGH_LOW",
-    label: "Most popular",
-    productIndexName: TYPESENSE_INDEXES.PRODUCTS_POPULARITY_HIGH_LOW,
-    comboIndexName: TYPESENSE_INDEXES.COMBO_PRODUCTS_POPULARITY_HIGH_LOW,
-  },
-  // {
-  //   id: "POPULARITY_LOW_HIGH",
-  //   label: "Least popular",
-  //   productIndexName: TYPESENSE_INDEXES.PRODUCTS_POPULARITY_LOW_HIGH,
-  //   comboIndexName: TYPESENSE_INDEXES.COMBO_PRODUCTS_POPULARITY_LOW_HIGH,
-  // },
 ];
 
 const formatPrice = (n) => (n != null && !Number.isNaN(n) ? `${Math.round(n)}` : null);
@@ -219,7 +207,7 @@ function ResultsList({ sectionTitle, items, quantities, onOpenVariantSheet, empt
                 <div className="flex justify-between gap-3">
                   <div className="flex flex-col gap-[2px]">
                     <div className="text-[14px] text-[#292E2C] leading-[20px]">
-                      {product.short_code || product.title}
+                      {product.title || product.short_code}
                     </div>
 
                     <div className="text-[12px] text-[#7B818C] leading-[16px]">{product.subtitle}</div>
@@ -334,21 +322,21 @@ function ComboResultsSection({ combos, status, quantities, onOpenVariantSheet, s
   );
 }
 
+/** Updates the address bar without App Router navigation (avoids RSC `search?_rsc=` refetches). */
+const replaceSearchUrl = (search) => {
+  if (typeof window === "undefined") return;
+
+  const nextUrl = search ? `${window.location.pathname}${search}` : window.location.pathname;
+  window.history.replaceState(window.history.state, "", nextUrl);
+};
+
 const SearchResultsContent = ({ query }) => {
-  // Support both string and suggestion object
+  // Support both string and suggestion object (`displayQ` = address-bar / bar text when it differs from Typesense `q`)
   const searchText = typeof query === "string" ? query.trim() : query?.q?.trim() || "";
   const baseFilterBy = typeof query === "string" ? undefined : query?.filter_by || undefined;
-  const router = useRouter();
-  const pathname = usePathname();
+  const displayForUrl =
+    typeof query === "object" && query?.displayQ != null ? String(query.displayQ).trim() : searchText;
   const searchParams = useSearchParams();
-
-  /** Keeps Next.js `useSearchParams()` in sync (raw `history.replaceState` does not). */
-  const replaceSearchUrl = useCallback(
-    (search) => {
-      router.replace(search ? `${pathname}${search}` : pathname, { scroll: false });
-    },
-    [pathname, router],
-  );
   const { items: products } = useHits();
   const { status, results } = useInstantSearch();
   const isComboFocusedQuery = useMemo(() => prefersComboResults(searchText), [searchText]);
@@ -387,6 +375,20 @@ const SearchResultsContent = ({ query }) => {
     () => Object.fromEntries(Object.entries(cartItems || {}).map(([variantId, item]) => [variantId, item?.qty || 0])),
     [cartItems],
   );
+
+  /** `useSearchParams()` can lag behind `replaceState`; align once from the real URL (fixes sort/filter after remount). */
+  useLayoutEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    setSortBy(p.get("sort") || "");
+    const cats = p.get("categories");
+    setSelectedCategories(cats ? cats.split(",").filter(Boolean) : []);
+    const cols = p.get("collections");
+    setSelectedCollections(cols ? cols.split(",").filter(Boolean) : []);
+    setPriceRange({
+      min: p.get("price_min") || "",
+      max: p.get("price_max") || "",
+    });
+  }, []);
 
   const combinedFilterBy = useMemo(() => {
     const filters = [];
@@ -450,7 +452,11 @@ const SearchResultsContent = ({ query }) => {
     }
 
     const params = new URLSearchParams();
-    if (searchText) params.set("q", searchText);
+    const qParam = displayForUrl || searchText;
+    if (qParam) params.set("q", qParam);
+    if (searchText !== displayForUrl) {
+      params.set("sq", searchText);
+    }
     if (baseFilterBy) params.set("filter_by", baseFilterBy);
     if (sortBy) params.set("sort", sortBy);
     if (selectedCategories.length) params.set("categories", selectedCategories.join(","));
@@ -459,7 +465,7 @@ const SearchResultsContent = ({ query }) => {
     if (priceRange.max) params.set("price_max", priceRange.max);
 
     replaceSearchUrl(params.toString() ? `?${params.toString()}` : "");
-  }, [baseFilterBy, priceRange, replaceSearchUrl, searchText, selectedCategories, selectedCollections, sortBy]);
+  }, [baseFilterBy, displayForUrl, priceRange, searchText, selectedCategories, selectedCollections, sortBy]);
 
   const toggleCategory = (category) => {
     setSelectedCategories((prev) =>

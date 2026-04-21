@@ -175,7 +175,7 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
                       <div className="flex-1 min-w-0">
                         <div className="text-xs text-gray-500 mb-0.5 line-clamp-1">{product.subtitle}</div>
                         <div className="text-sm text-gray-900 font-medium leading-5 line-clamp-2">
-                          {product.short_code || product.title}
+                          {product.title || product.short_code}
                         </div>
                       </div>
                     </Link>
@@ -219,7 +219,7 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
                       <div className="flex-1 min-w-0">
                         <div className="text-xs text-gray-500 mb-0.5 line-clamp-1">{product.subtitle}</div>
                         <div className="text-sm text-gray-900 font-medium leading-5 line-clamp-2">
-                          {product.short_code || product.title}
+                          {product.title || product.short_code}
                         </div>
                       </div>
                     </Link>
@@ -265,7 +265,7 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
                       <div className="flex-1 min-w-0">
                         <div className="text-xs text-gray-500 mb-0.5 line-clamp-1">{product.subtitle}</div>
                         <div className="text-sm text-gray-900 font-medium leading-5 line-clamp-2">
-                          {product.short_code || product.title}
+                          {product.title || product.short_code}
                         </div>
                       </div>
                     </Link>
@@ -309,7 +309,7 @@ function SearchSuggestionAndProductsContent({ query, onSuggestionClick, onLoadin
                       <div className="flex-1 min-w-0">
                         <div className="text-xs text-gray-500 mb-0.5 line-clamp-1">{product.subtitle}</div>
                         <div className="text-sm text-gray-900 font-medium leading-5 line-clamp-2">
-                          {product.short_code || product.title}
+                          {product.title || product.short_code}
                         </div>
                       </div>
                     </Link>
